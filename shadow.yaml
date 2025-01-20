@@ -1,0 +1,125 @@
+general:
+  stop_time: 100
+network:
+  graph:
+    type: gml
+    inline: |
+      graph [
+        node [
+          id 0
+          host_bandwidth_up "50 Mbit"
+          host_bandwidth_down "50 Mbit"
+        ]
+        edge [
+          source 0
+          target 0
+          latency "100 ms"
+          packet_loss 0.0
+        ]
+      ]
+
+hosts:
+  node0: &node
+    network_node_id: 0
+    processes:
+    - path: ./pubsub-shadow
+      args: -count 100
+  node1: *node
+  node2: *node
+  node3: *node
+  node4: *node
+  node5: *node
+  node6: *node
+  node7: *node
+  node8: *node
+  node9: *node
+  node10: *node
+  node11: *node
+  node12: *node
+  node13: *node
+  node14: *node
+  node15: *node
+  node16: *node
+  node17: *node
+  node18: *node
+  node19: *node
+  node20: *node
+  node21: *node
+  node22: *node
+  node23: *node
+  node24: *node
+  node25: *node
+  node26: *node
+  node27: *node
+  node28: *node
+  node29: *node
+  node30: *node
+  node31: *node
+  node32: *node
+  node33: *node
+  node34: *node
+  node35: *node
+  node36: *node
+  node37: *node
+  node38: *node
+  node39: *node
+  node40: *node
+  node41: *node
+  node42: *node
+  node43: *node
+  node44: *node
+  node45: *node
+  node46: *node
+  node47: *node
+  node48: *node
+  node49: *node
+  node50: *node
+  node51: *node
+  node52: *node
+  node53: *node
+  node54: *node
+  node55: *node
+  node56: *node
+  node57: *node
+  node58: *node
+  node59: *node
+  node60: *node
+  node61: *node
+  node62: *node
+  node63: *node
+  node64: *node
+  node65: *node
+  node66: *node
+  node67: *node
+  node68: *node
+  node69: *node
+  node70: *node
+  node71: *node
+  node72: *node
+  node73: *node
+  node74: *node
+  node75: *node
+  node76: *node
+  node77: *node
+  node78: *node
+  node79: *node
+  node80: *node
+  node81: *node
+  node82: *node
+  node83: *node
+  node84: *node
+  node85: *node
+  node86: *node
+  node87: *node
+  node88: *node
+  node89: *node
+  node90: *node
+  node91: *node
+  node92: *node
+  node93: *node
+  node94: *node
+  node95: *node
+  node96: *node
+  node97: *node
+  node98: *node
+  node99: *node
