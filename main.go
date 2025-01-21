@@ -10,6 +10,8 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -182,4 +184,9 @@ func main() {
 			}
 		}
 	}
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT)
+
+	<-stop
+	fmt.Println("Received signal, shutting down...")
 }
