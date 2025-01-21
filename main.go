@@ -23,9 +23,39 @@ const (
 )
 
 var (
-	countFlag  = flag.Int("count", 20, "the number of nodes in the network")
-	targetFlag = flag.Int("target", 10, "the target number of peers")
+	countFlag  = flag.Int("count", 5000, "the number of nodes in the network")
+	targetFlag = flag.Int("target", 70, "the target number of peers")
+	D          = flag.Int("D", 8, "mesh degree for gossipsub topics")
+	Dannounce  = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
+	msgSizeKB  = flag.Int("size", 128, "message size in KB")
 )
+
+// creates a custom gossipsub parameter set.
+func pubsubGossipParam() pubsub.GossipSubParams {
+	gParams := pubsub.DefaultGossipSubParams()
+	gParams.Dlo = 6
+	gParams.D = *D
+	gParams.Dhi = 12
+	gParams.HeartbeatInterval = 700 * time.Millisecond
+	gParams.HistoryLength = 6
+	gParams.HistoryGossip = 3
+	gParams.Dannounce = *Dannounce
+	return gParams
+}
+
+// pubsubOptions creates a list of options to configure our router with.
+func pubsubOptions() []pubsub.Option {
+	psOpts := []pubsub.Option{
+		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
+		pubsub.WithNoAuthor(),
+		pubsub.WithPeerOutboundQueueSize(600),
+		pubsub.WithMaxMessageSize(10 * 1 << 20),
+		pubsub.WithValidateQueueSize(600),
+		pubsub.WithGossipSubParams(pubsubGossipParam()),
+	}
+
+	return psOpts
+}
 
 // compute a private key for node id
 func nodePrivKey(id int) crypto.PrivKey {
@@ -42,6 +72,8 @@ func nodePrivKey(id int) crypto.PrivKey {
 
 func main() {
 	log.SetOutput(os.Stdout)
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
 	flag.Parse()
 	ctx := context.Background()
 
@@ -110,7 +142,8 @@ func main() {
 	}
 
 	// create a gossipsub node and subscribe to the topic
-	ps, err := pubsub.NewGossipSub(ctx, h)
+	psOpts := pubsubOptions()
+	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
 	}
@@ -123,24 +156,30 @@ func main() {
 		panic(err)
 	}
 
-	cnt := 0
-	for {
-		// if it's a turn for the node to publish, publish
-		if cnt == nodeId {
-			msg := fmt.Sprintf("Hello from node%d", nodeId)
-			if err := topic.Publish(ctx, []byte(msg)); err != nil {
-				log.Printf("Failed to publish: %s\n", msg)
-			} else {
-				log.Printf("Published: %s\n", msg)
+	msg := make([]byte, *msgSizeKB*(1<<10))
+	rand.Read(msg)
+
+	publishingId := rand.Intn(*countFlag)
+	dups := -1
+	// if it's a turn for the node to publish, publish
+	if publishingId == nodeId {
+		if err := topic.Publish(ctx, msg); err != nil {
+			log.Printf("Failed to publish message from node%d\n", nodeId)
+		} else {
+			log.Printf("Published message by node%d\n", nodeId)
+		}
+	} else {
+		for {
+			// block and wait to receive the next message
+			m, err := sub.Next(ctx)
+			if err != nil {
+				panic(err)
+			}
+			log.Printf("Received a message from %s: %s\n", m.ReceivedFrom, string(m.Message.Data))
+			dups++
+			if dups > 0 {
+				log.Printf("Total number of duplicates recevied: %d\n", dups)
 			}
 		}
-		// block and wait to receive the next message
-		m, err := sub.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-		log.Printf("Received a message from %s: %s", m.ReceivedFrom, string(m.Message.Data))
-
-		cnt++
 	}
 }
