@@ -24,10 +24,10 @@ const (
 
 var (
 	countFlag     = flag.Int("count", 5000, "the number of nodes in the network")
-	targetFlag    = flag.Int("target", 35, "the target number of peers (outbound)")
+	targetFlag    = flag.Int("target", 70, "the target number of connected peers")
 	DFlag         = flag.Int("D", 8, "mesh degree for gossipsub topics")
 	DannounceFlag = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
-	msgSizeKBFlag = flag.Int("size", 128, "message size in KB")
+	msgSizeFlag   = flag.Int("size", 32, "message size in bytes")
 )
 
 // creates a custom gossipsub parameter set.
@@ -52,6 +52,7 @@ func pubsubOptions() []pubsub.Option {
 		pubsub.WithMaxMessageSize(10 * 1 << 20),
 		pubsub.WithValidateQueueSize(600),
 		pubsub.WithGossipSubParams(pubsubGossipParam()),
+		pubsub.WithRawTracer(gossipTracer{}),
 	}
 
 	return psOpts
@@ -107,7 +108,7 @@ func main() {
 
 	// discover peers
 	peers := make(map[int]struct{})
-	for len(peers) < *targetFlag {
+	for len(h.Network().Peers()) < *targetFlag {
 		// do node discovery by picking the node randomly
 		id := rand.Intn(*countFlag)
 		if _, ok := peers[id]; ok || id == nodeId {
@@ -156,7 +157,10 @@ func main() {
 		panic(err)
 	}
 
-	msg := make([]byte, *msgSizeKBFlag*(1<<10))
+	//wait sometime until all meshes are fomed
+	time.Sleep(10 * time.Second)
+
+	msg := make([]byte, *msgSizeFlag)
 	rand.Read(msg)
 
 	dups := -1
