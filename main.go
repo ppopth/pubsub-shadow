@@ -23,9 +23,40 @@ const (
 )
 
 var (
-	countFlag  = flag.Int("count", 20, "the number of nodes in the network")
-	targetFlag = flag.Int("target", 10, "the target number of peers")
+	countFlag     = flag.Int("count", 5000, "the number of nodes in the network")
+	targetFlag    = flag.Int("target", 70, "the target number of connected peers")
+	DFlag         = flag.Int("D", 8, "mesh degree for gossipsub topics")
+	DannounceFlag = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
+	msgSizeFlag   = flag.Int("size", 32, "message size in bytes")
 )
+
+// creates a custom gossipsub parameter set.
+func pubsubGossipParam() pubsub.GossipSubParams {
+	gParams := pubsub.DefaultGossipSubParams()
+	gParams.Dlo = 6
+	gParams.D = *DFlag
+	gParams.Dhi = 12
+	gParams.HeartbeatInterval = 700 * time.Millisecond
+	gParams.HistoryLength = 6
+	gParams.HistoryGossip = 3
+	gParams.Dannounce = *DannounceFlag
+	return gParams
+}
+
+// pubsubOptions creates a list of options to configure our router with.
+func pubsubOptions() []pubsub.Option {
+	psOpts := []pubsub.Option{
+		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
+		pubsub.WithNoAuthor(),
+		pubsub.WithPeerOutboundQueueSize(600),
+		pubsub.WithMaxMessageSize(10 * 1 << 20),
+		pubsub.WithValidateQueueSize(600),
+		pubsub.WithGossipSubParams(pubsubGossipParam()),
+		pubsub.WithRawTracer(gossipTracer{}),
+	}
+
+	return psOpts
+}
 
 // compute a private key for node id
 func nodePrivKey(id int) crypto.PrivKey {
@@ -42,6 +73,8 @@ func nodePrivKey(id int) crypto.PrivKey {
 
 func main() {
 	log.SetOutput(os.Stdout)
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
 	flag.Parse()
 	ctx := context.Background()
 
@@ -75,7 +108,7 @@ func main() {
 
 	// discover peers
 	peers := make(map[int]struct{})
-	for len(peers) < *targetFlag {
+	for len(h.Network().Peers()) < *targetFlag {
 		// do node discovery by picking the node randomly
 		id := rand.Intn(*countFlag)
 		if _, ok := peers[id]; ok || id == nodeId {
@@ -110,7 +143,8 @@ func main() {
 	}
 
 	// create a gossipsub node and subscribe to the topic
-	ps, err := pubsub.NewGossipSub(ctx, h)
+	psOpts := pubsubOptions()
+	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
 	}
@@ -123,24 +157,34 @@ func main() {
 		panic(err)
 	}
 
-	cnt := 0
-	for {
-		// if it's a turn for the node to publish, publish
-		if cnt == nodeId {
-			msg := fmt.Sprintf("Hello from node%d", nodeId)
-			if err := topic.Publish(ctx, []byte(msg)); err != nil {
-				log.Printf("Failed to publish: %s\n", msg)
-			} else {
-				log.Printf("Published: %s\n", msg)
-			}
+	//wait sometime until all meshes are fomed
+	time.Sleep(10 * time.Second)
+
+	msg := make([]byte, *msgSizeFlag)
+	rand.Read(msg)
+
+	dups := -1
+	// if it's a turn for the node to publish, publish
+	if nodeId == 0 {
+		if err := topic.Publish(ctx, msg); err != nil {
+			log.Printf("Failed to publish message from %s\n", h.ID())
+		} else {
+			log.Printf("Published message by %s\n", h.ID())
 		}
+	}
+
+	for {
 		// block and wait to receive the next message
 		m, err := sub.Next(ctx)
 		if err != nil {
 			panic(err)
 		}
-		log.Printf("Received a message from %s: %s", m.ReceivedFrom, string(m.Message.Data))
+		log.Printf("Received a message from %s: %d\n", m.ReceivedFrom, len(m.Message.Data))
+		dups++
+		if dups > 0 {
+			log.Printf("Total number of duplicates received: %d\n", dups)
+		}
 
-		cnt++
 	}
+
 }
