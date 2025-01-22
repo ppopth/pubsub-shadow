@@ -176,7 +176,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		log.Printf("Received a message from %s: %s\n", m.ReceivedFrom, string(m.Message.Data))
+		log.Printf("Received a message from %s: %d\n", m.ReceivedFrom, len(m.Message.Data))
 		dups++
 		if dups > 0 {
 			log.Printf("Total number of duplicates received: %d\n", dups)
