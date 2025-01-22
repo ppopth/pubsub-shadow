@@ -163,7 +163,6 @@ func main() {
 	msg := make([]byte, *msgSizeFlag)
 	rand.Read(msg)
 
-	dups := -1
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {
 		if err := topic.Publish(ctx, msg); err != nil {
@@ -180,11 +179,6 @@ func main() {
 			panic(err)
 		}
 		log.Printf("Received a message from %s: %d\n", m.ReceivedFrom, len(m.Message.Data))
-		dups++
-		if dups > 0 {
-			log.Printf("Total number of duplicates received: %d\n", dups)
-		}
-
 	}
 
 }
