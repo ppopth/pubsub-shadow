@@ -23,23 +23,23 @@ const (
 )
 
 var (
-	countFlag  = flag.Int("count", 5000, "the number of nodes in the network")
-	targetFlag = flag.Int("target", 70, "the target number of peers")
-	D          = flag.Int("D", 8, "mesh degree for gossipsub topics")
-	Dannounce  = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
-	msgSizeKB  = flag.Int("size", 128, "message size in KB")
+	countFlag     = flag.Int("count", 5000, "the number of nodes in the network")
+	targetFlag    = flag.Int("target", 70/2, "the target number of peers")
+	DFlag         = flag.Int("D", 8, "mesh degree for gossipsub topics")
+	DannounceFlag = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
+	msgSizeKBFlag = flag.Int("size", 128, "message size in KB")
 )
 
 // creates a custom gossipsub parameter set.
 func pubsubGossipParam() pubsub.GossipSubParams {
 	gParams := pubsub.DefaultGossipSubParams()
 	gParams.Dlo = 6
-	gParams.D = *D
+	gParams.D = *DFlag
 	gParams.Dhi = 12
 	gParams.HeartbeatInterval = 700 * time.Millisecond
 	gParams.HistoryLength = 6
 	gParams.HistoryGossip = 3
-	gParams.Dannounce = *Dannounce
+	gParams.Dannounce = *DannounceFlag
 	return gParams
 }
 
@@ -156,7 +156,7 @@ func main() {
 		panic(err)
 	}
 
-	msg := make([]byte, *msgSizeKB*(1<<10))
+	msg := make([]byte, *msgSizeKBFlag*(1<<10))
 	rand.Read(msg)
 
 	publishingId := rand.Intn(*countFlag)
