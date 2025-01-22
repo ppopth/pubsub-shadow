@@ -10,8 +10,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -170,23 +168,20 @@ func main() {
 		} else {
 			log.Printf("Published message by node%d\n", nodeId)
 		}
-	} else {
-		for {
-			// block and wait to receive the next message
-			m, err := sub.Next(ctx)
-			if err != nil {
-				panic(err)
-			}
-			log.Printf("Received a message from %s: %s\n", m.ReceivedFrom, string(m.Message.Data))
-			dups++
-			if dups > 0 {
-				log.Printf("Total number of duplicates recevied: %d\n", dups)
-			}
-		}
 	}
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT)
 
-	<-stop
-	fmt.Println("Received signal, shutting down...")
+	for {
+		// block and wait to receive the next message
+		m, err := sub.Next(ctx)
+		if err != nil {
+			panic(err)
+		}
+		log.Printf("Received a message from %s: %s\n", m.ReceivedFrom, string(m.Message.Data))
+		dups++
+		if dups > 0 {
+			log.Printf("Total number of duplicates received: %d\n", dups)
+		}
+
+	}
+
 }
