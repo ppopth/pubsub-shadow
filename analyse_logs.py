@@ -1,10 +1,10 @@
 import re
-import datetime
+from datetime import datetime
 import numpy
 
 # Define the updated regex pattern
 line_pattern = r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{6})\s+(.*)"
-rx_pattern = r"from (\S+)(?=:)\s*:\s*(\d+)"
+rx_pattern = r"from (\S+): (\d+)"
 BASE_PATH = "./shadow.data/hosts/node"
 STDOUT_LOGFILE = "/pubsub-shadow.1000.stdout"
 

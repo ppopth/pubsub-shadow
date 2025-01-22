@@ -24,7 +24,7 @@ const (
 
 var (
 	countFlag     = flag.Int("count", 5000, "the number of nodes in the network")
-	targetFlag    = flag.Int("target", 70/2, "the target number of peers")
+	targetFlag    = flag.Int("target", 35, "the target number of peers (outbound)")
 	DFlag         = flag.Int("D", 8, "mesh degree for gossipsub topics")
 	DannounceFlag = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
 	msgSizeKBFlag = flag.Int("size", 128, "message size in KB")
@@ -159,14 +159,13 @@ func main() {
 	msg := make([]byte, *msgSizeKBFlag*(1<<10))
 	rand.Read(msg)
 
-	publishingId := rand.Intn(*countFlag)
 	dups := -1
 	// if it's a turn for the node to publish, publish
-	if publishingId == nodeId {
+	if nodeId == 0 {
 		if err := topic.Publish(ctx, msg); err != nil {
-			log.Printf("Failed to publish message from node%d\n", nodeId)
+			log.Printf("Failed to publish message from %s\n", h.ID())
 		} else {
-			log.Printf("Published message by node%d\n", nodeId)
+			log.Printf("Published message by %s\n", h.ID())
 		}
 	}
 
