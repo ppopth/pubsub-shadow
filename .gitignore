@@ -3,3 +3,6 @@
 /shadow.yaml
 /graph.gml
 /pubsub-shadow
+/venv
+/plots
+.DS_Store
