@@ -14,6 +14,7 @@ import (
 
 	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	pubsubpb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -48,6 +49,9 @@ func pubsubOptions() []pubsub.Option {
 	psOpts := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
+		pubsub.WithMessageIdFn(func(pmsg *pubsubpb.Message) string {
+			return CalcID(pmsg.Data)
+		}),
 		pubsub.WithPeerOutboundQueueSize(600),
 		pubsub.WithMaxMessageSize(10 * 1 << 20),
 		pubsub.WithValidateQueueSize(600),
@@ -166,7 +170,7 @@ func main() {
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {
 		if err := topic.Publish(ctx, msg); err != nil {
-			log.Printf("Failed to publish message from %s\n", h.ID())
+			log.Printf("Failed to publish message by %s\n", h.ID())
 		} else {
 			log.Printf("Published message by %s\n", h.ID())
 		}

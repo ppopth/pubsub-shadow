@@ -6,3 +6,5 @@
 /venv
 /plots
 .DS_Store
+Dockerfile
+docker-compose.yml
