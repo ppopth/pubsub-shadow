@@ -2,6 +2,8 @@
 
 export SIM_D=8
 
+go build -linkshared
+
 for kb in 128 256 512 1024 2048; do
   for announce in 0 7 8; do
     result=$((kb * 1024))

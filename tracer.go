@@ -67,12 +67,12 @@ func (g gossipTracer) RejectMessage(msg *pubsub.Message, reason string) {
 
 // DuplicateMessage .
 func (g gossipTracer) DuplicateMessage(msg *pubsub.Message) {
-	log.Printf("GossipSub: Duplicated (id: %s, reason: %s)\n", msg.ID)
+	log.Printf("GossipSub: Duplicated (id: %s)\n", msg.ID)
 }
 
 // UndeliverableMessage .
 func (g gossipTracer) UndeliverableMessage(msg *pubsub.Message) {
-	log.Printf("GossipSub: Undeliverable (id: %s, reason: %s)\n", msg.ID)
+	log.Printf("GossipSub: Undeliverable (id: %s)\n", msg.ID)
 }
 
 // ThrottlePeer .
@@ -89,33 +89,33 @@ func (g gossipTracer) logRPC(rpc *pubsub.RPC, to string, action string) {
 
 	if rpc.Control == nil {
 		for _, msg := range rpc.Publish {
-			log.Printf("GossipSub: %s Publish RPC (id: %s, topic: %d%s)\n",
-				action, CalcID(msg.Data), len(*msg.Topic), suffix)
+			log.Printf("GossipSubRPC: %s Publish (topic: %s, id: %s%s)\n",
+				action, *msg.Topic, CalcID(msg.Data), suffix)
 		}
 	} else {
 		if len(rpc.Control.Ihave) > 0 {
 			for _, msg := range rpc.Control.Ihave {
-				log.Printf("GossipSub: %s IHAVE (topic: %s, ids: %q%s)\n",
-					action, msg.TopicID, msg.MessageIDs, suffix)
+				log.Printf("GossipSubRPC: %s IHAVE (topic: %s, ids: %q%s)\n",
+					action, *msg.TopicID, msg.MessageIDs, suffix)
 			}
 		} else if len(rpc.Control.Iwant) > 0 {
 			for _, msg := range rpc.Control.Iwant {
-				log.Printf("GossipSub: %s IWANT (ids: %q%s)\n",
+				log.Printf("GossipSubRPC: %s IWANT (ids: %q%s)\n",
 					action, msg.MessageIDs, suffix)
 			}
 		} else if len(rpc.Control.Idontwant) > 0 {
 			for _, msg := range rpc.Control.Idontwant {
-				log.Printf("GossipSub: %s IDONTWANT (ids: %q%s)\n",
+				log.Printf("GossipSubRPC: %s IDONTWANT (ids: %q%s)\n",
 					action, msg.MessageIDs, suffix)
 			}
 		} else if len(rpc.Control.Iannounce) > 0 {
 			for _, msg := range rpc.Control.Iannounce {
-				log.Printf("GossipSub: %s IANNOUNCE (topic: %s, ids: %q%s)\n",
+				log.Printf("GossipSubRPC: %s IANNOUNCE (topic: %s, id: %q%s)\n",
 					action, *msg.TopicID, *msg.MessageID, suffix)
 			}
 		} else if len(rpc.Control.Ineed) > 0 {
 			for _, msg := range rpc.Control.Ineed {
-				log.Printf("GossipSub: %s INEED (id: %q%s)\n",
+				log.Printf("GossipSubRPC: %s INEED (id: %q%s)\n",
 					action, *msg.MessageID, suffix)
 			}
 		}
