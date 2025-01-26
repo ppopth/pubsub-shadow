@@ -110,12 +110,12 @@ func (g gossipTracer) logRPC(rpc *pubsub.RPC, to string, action string) {
 			}
 		} else if len(rpc.Control.Iannounce) > 0 {
 			for _, msg := range rpc.Control.Iannounce {
-				log.Printf("GossipSubRPC: %s IANNOUNCE (topic: %s, id: %q%s)\n",
+				log.Printf("GossipSubRPC: %s IANNOUNCE (topic: %s, id: %s%s)\n",
 					action, *msg.TopicID, *msg.MessageID, suffix)
 			}
 		} else if len(rpc.Control.Ineed) > 0 {
 			for _, msg := range rpc.Control.Ineed {
-				log.Printf("GossipSubRPC: %s INEED (id: %q%s)\n",
+				log.Printf("GossipSubRPC: %s INEED (id: %s%s)\n",
 					action, *msg.MessageID, suffix)
 			}
 		}

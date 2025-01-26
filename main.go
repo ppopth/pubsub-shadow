@@ -29,6 +29,7 @@ var (
 	DFlag         = flag.Int("D", 8, "mesh degree for gossipsub topics")
 	DannounceFlag = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
 	msgSizeFlag   = flag.Int("size", 32, "message size in bytes")
+	numMsgsFlag   = flag.Int("n", 1, "number of messages published at the same time")
 )
 
 // creates a custom gossipsub parameter set.
@@ -165,14 +166,16 @@ func main() {
 	time.Sleep(10 * time.Second)
 
 	msg := make([]byte, *msgSizeFlag)
-	rand.Read(msg)
 
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {
-		if err := topic.Publish(ctx, msg); err != nil {
-			log.Printf("Failed to publish message by %s\n", h.ID())
-		} else {
-			log.Printf("Published: (topic: %s, id: %s)\n", topicName, CalcID(msg))
+		for i := 0; i < *numMsgsFlag; i++ {
+			rand.Read(msg) // it takes about a 50-100 us to fill the buffer on macpro 2019. Can be considered simulataneous
+			if err := topic.Publish(ctx, msg); err != nil {
+				log.Printf("Failed to publish message by %s\n", h.ID())
+			} else {
+				log.Printf("Published: (topic: %s, id: %s)\n", topicName, CalcID(msg))
+			}
 		}
 	}
 

@@ -21,7 +21,6 @@ def extract_data(log_line):
         for item in pairs:
             value = item.split(": ")[1]
             if "[" in value:
-                print("aagaya", value)
                 matches = re.findall(r'"([^"]+)"', value)
                 values.append(matches)
             else:
@@ -48,6 +47,8 @@ def read_node_logs(lines):
         if msg_id is None:
             timelines[key].append(timestamp)
             return
+
+        msg_id = msg_id.replace('"', "")
 
         if msg_id not in timelines["msgs"]:
             timelines["msgs"][msg_id] = {
@@ -158,44 +159,39 @@ def read_node_logs(lines):
                 elif "IHAVE" in log_content:
                     topic = ext[0]
                     if "Received" in log_content:
-                        for msg_id in ext[1:]:
+                        for msg_id in ext[1]:
                             add_timestamp(
                                 msg_id, "ihaves_received", (timestamp, topic))
                     elif "Sent" in log_content:
-                        for msg_id in ext[1:-2]:
+                        for msg_id in ext[1]:
                             add_timestamp(msg_id, "ihaves_sent",
                                           (timestamp, topic))
                 elif "IWANT" in log_content:
-                    topic = ext[0]
                     if "Received" in log_content:
-                        for msg_id in ext[1:]:
+                        for msg_id in ext[0]:
                             add_timestamp(
                                 msg_id, "iwants_received", (timestamp, topic))
                     elif "Sent" in log_content:
-                        for msg_id in ext[1:-2]:
+                        for msg_id in ext[0]:
                             add_timestamp(msg_id, "iwants_sent",
                                           (timestamp, topic))
                 elif "IDONTWANT" in log_content:
-                    topic = ext[0]
                     if "Received" in log_content:
-                        for msg_id in ext[1:]:
+                        for msg_id in ext[0]:
                             add_timestamp(
                                 msg_id, "idontwants_received", (
                                     timestamp, topic)
                             )
                     elif "Sent" in log_content:
-                        for msg_id in ext[1:-2]:
+                        for msg_id in ext[0]:
                             add_timestamp(
                                 msg_id, "idontwants_sent", (timestamp, topic))
                 elif "INEED" in log_content:
-                    msg_id = ext[1]
-                    topic = ext[0]
+                    msg_id = ext[0]
                     if "Received" in log_content:
-                        add_timestamp(msg_id, "ineeds_received",
-                                      (timestamp, topic))
+                        add_timestamp(msg_id, "ineeds_received", (timestamp))
                     elif "Sent" in log_content:
-                        add_timestamp(msg_id, "ineeds_sent",
-                                      (timestamp, topic))
+                        add_timestamp(msg_id, "ineeds_sent", (timestamp))
                 elif "IANNOUNCE" in log_content:
                     msg_id = ext[1]
                     topic = ext[0]
@@ -240,7 +236,7 @@ def analyse_timelines(extracted_data):
             dups[msg_id].append(len(timeline[msg_id]["duplicate"]))
 
             if len(timeline[msg_id]["published"]) > 0:
-                published_time[msg_id] = timeline[msg_id]["published"][0]
+                published_time[msg_id] = (timeline[msg_id]["published"][0])[0]
 
     for id in extracted_data:
         timeline = extracted_data[id]["msgs"]
@@ -277,6 +273,8 @@ if __name__ == "__main__":
             timelines[announce] = {}
         plt.figure(figsize=(8, 6))
         for msg_size in [128, 256, 512, 1024, 2048]:
+            print(f"Processing for Dannounce: {
+                  announce} and {msg_size}KB msg size")
             timelines[announce][msg_size] = extract_node_timelines(
                 f"shadow-{msg_size}-{announce}.data", count
             )
@@ -285,8 +283,10 @@ if __name__ == "__main__":
             for msg_id in arr_times:
                 print(
                     f"Average number of duplicates: {
-                        sum(dups[msg_id])/len(dups[msg_id])} for D=8 and Dannounce={announce}"
+                        np.sum(dups[msg_id])/count}"
                 )
+                print(f"Median number of duplicates: {
+                      np.median(dups[msg_id])}")
                 plot_cdf(arr_times[msg_id], f"{msg_size}KB message")
 
         plt.title(f"Message Arrival Times for D=8 & Dannounce={announce}")
