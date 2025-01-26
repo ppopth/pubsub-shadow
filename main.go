@@ -172,7 +172,7 @@ func main() {
 		if err := topic.Publish(ctx, msg); err != nil {
 			log.Printf("Failed to publish message by %s\n", h.ID())
 		} else {
-			log.Printf("Published message by %s\n", h.ID())
+			log.Printf("Published: (topic: %s, id: %s)\n", topicName, CalcID(msg))
 		}
 	}
 
@@ -182,7 +182,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		log.Printf("Received a message from %s: %d\n", m.ReceivedFrom, len(m.Message.Data))
+		log.Printf("Received: (topic: %s, id: %s)\n", *m.Topic, CalcID(m.Message.Data))
 	}
 
 }
