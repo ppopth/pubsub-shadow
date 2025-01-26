@@ -1,5 +1,4 @@
 import re
-import copy
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
@@ -223,33 +222,40 @@ def extract_node_timelines(folder, count):
 
 
 def analyse_timelines(extracted_data):
-    published_time = {}
-    dups = {}
-    arrival_times = {}
+    arrival_times = []
+
+    # we know node 0 is the publiisher
+    timeline = extracted_data[0]["msgs"]
+    publishing_time = -1
+    for msg_id in timeline:
+        if len(timeline[msg_id]["published"]) > 0:
+            # since every messaage is published only once we don't need to sort
+            temp_time = (timeline[msg_id]["published"][0])[0]
+
+            # published time is the time at which the first message was published
+            if publishing_time < 0 or temp_time < publishing_time:
+                publishing_time = temp_time
+        else:
+            raise Exception("node did not publish")
 
     for id in extracted_data:
         timeline = extracted_data[id]["msgs"]
+        receiving_time = -1
         for msg_id in timeline:
-            if msg_id not in dups:
-                dups[msg_id] = []
-                published_time[msg_id] = 0
-            dups[msg_id].append(len(timeline[msg_id]["duplicate"]))
-
-            if len(timeline[msg_id]["published"]) > 0:
-                published_time[msg_id] = (timeline[msg_id]["published"][0])[0]
-
-    for id in extracted_data:
-        timeline = extracted_data[id]["msgs"]
-        for msg_id in timeline:
-            if msg_id not in arrival_times:
-                arrival_times[msg_id] = []
-
             if len(timeline[msg_id]["delivered"]) > 0:
-                recv_time = sorted(timeline[msg_id]["delivered"])[0]
-                arrival_times[msg_id].append(
-                    (id, recv_time - published_time[msg_id]))
+                # the first time we received a particular msg_id
+                temp_time = sorted(timeline[msg_id]["delivered"])[0]
+            else:
+                temp_time = publishing_time
 
-    return arrival_times, dups
+            # received time is the time at which the last message (any msg_id) was received
+            if receiving_time < 0 or temp_time > receiving_time:
+                receiving_time = temp_time
+        arrival_times.append((id, receiving_time - publishing_time))
+
+    print(arrival_times)
+
+    return arrival_times
 
 
 def plot_cdf(data, label):
@@ -259,37 +265,89 @@ def plot_cdf(data, label):
     x.sort()
 
     plt.plot(x, y, label=label)
-    plt.xlabel("Message Arrival Time")
-    plt.ylabel("Cumulative Proportion of Nodes")
 
 
 if __name__ == "__main__":
     count = int(sys.argv[1])
 
     timelines = {}
+    arr_times = {}
 
+    # read all simulations
     for announce in [0, 7, 8]:
-        if announce not in timelines:
-            timelines[announce] = {}
+        for msg_size in [128, 256, 512, 1024, 2048]:
+            for num_msgs in [1, 2, 4, 8, 16]:
+                timeline_key = f"{msg_size}-{announce}-{num_msgs}"
+                timelines[timeline_key] = extract_node_timelines(
+                    f"shadow-{timeline_key}.data", count
+                )
+                arr_times[timeline_key] = analyse_timelines(
+                    timelines[timeline_key])
+
+    # 1. plot CDF of arrival times vs. nodes for different message sizes for one msg published
+    # three different plots for different Dannounce. Each plot contains 5 CDFs for different sizes
+    for announce in [0, 7, 8]:
         plt.figure(figsize=(8, 6))
         for msg_size in [128, 256, 512, 1024, 2048]:
-            print(f"Processing for Dannounce: {
-                  announce} and {msg_size}KB msg size")
-            timelines[announce][msg_size] = extract_node_timelines(
-                f"shadow-{msg_size}-{announce}.data", count
-            )
-            arr_times, dups = analyse_timelines(timelines[announce][msg_size])
+            # only for one message published
+            timeline_key = f"{msg_size}-{announce}-1"
+            plot_cdf(arr_times[timeline_key], f"{msg_size}KB message")
 
-            for msg_id in arr_times:
-                print(
-                    f"Average number of duplicates: {
-                        np.sum(dups[msg_id])/count}"
-                )
-                print(f"Median number of duplicates: {
-                      np.median(dups[msg_id])}")
-                plot_cdf(arr_times[msg_id], f"{msg_size}KB message")
-
+        plt.xlabel("Message Arrival Time")
+        plt.ylabel("Cumulative Proportion of Nodes")
         plt.title(f"Message Arrival Times for D=8 & Dannounce={announce}")
         plt.grid(True)
         plt.legend()
-        plt.savefig(f"./plots/cdf_arrival_times_{announce}.png")
+        plt.savefig(f"./plots/cdf_sizes_{announce}.png")
+
+    # 2. plot CDF of arrival times vs. nodes for different numbers of messages(of same size)  published at the same time
+    # three different plots for different Dannounce. Each plot contains 5 CDFs for different num of msgs
+    for announce in [0, 7, 8]:
+        plt.figure(figsize=(8, 6))
+        for msg_size in [1, 2, 4, 8, 16]:
+            # only for one message published
+            timeline_key = f"{128}-{announce}-{num_msgs}"
+            plot_cdf(arr_times[timeline_key], f"{num_msgs} num of msgs")
+
+        plt.xlabel("Message Arrival Time")
+        plt.ylabel("Cumulative Proportion of Nodes")
+        plt.title(f"Message Arrival Times for D=8 & Dannounce={announce}")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(f"./plots/cdf_num_{announce}.png")
+
+    # 3. scatter plot of arrival times vs. nodes for different numbers of messages(of same size)  published at the same time
+    # three different plots for different Dannounce. Each plot contains 5 CDFs for different num of msgs
+    arr_times_merged = [
+        (*key.split("-"), value)  # Split the key by "-" and merge it with the value
+        for key, values in arr_times.items()
+        for value in values
+    ]
+
+    latencies = {}
+    # reshape by announce values
+    for item in arr_times_merged:
+        announce_value = item[1]  # The second value of the tuple
+        if announce_value not in latencies:
+            latencies[announce_value] = []
+        latencies[announce_value].append((item[0], item[2], item[3]))
+
+    for announce in latencies:
+        latencies_sorted = sorted(
+            latencies[announce], key=lambda x: x[2], reverse=True)
+
+        p95_count = int(len(latencies_sorted) * 0.05)
+
+        p95_latencies = latencies_sorted[:p95_count]
+
+        x_values = [item[0] for item in p95_latencies]
+        y_values = [item[1] for item in p95_latencies]
+
+        plt.figure(figsize=(8, 6))
+        plt.scatter(x_values, y_values)
+        plt.title(
+            "Scatter Plot of Msg Size vs Num of Msgs published (later than P95)")
+        plt.xlabel("Msg Size in KB")
+        plt.ylabel("Number of Messages")
+        plt.grid(True)
+        plt.savefig(f"./plots/scatter_{announce}.png")
