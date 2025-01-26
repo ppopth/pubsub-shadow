@@ -17,7 +17,7 @@ for kb in 128 256 512 1024 2048; do
 
       shadow -d $filename.data $filename.yaml
 
-      tar -czvf $filename.tar.gz $filename.data
+      tar -czf $filename.tar.gz $filename.data
 
       rm $filename.yaml
       rm -rf $filename.data
