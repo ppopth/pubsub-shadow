@@ -151,40 +151,33 @@ def read_node_logs(lines):
                     msg_id = ext[1]
                     topic = ext[0]
                     if "Received" in log_content:
-                        add_timestamp(msg_id, "rpcs_received",
-                                      (timestamp, topic))
+                        add_timestamp(msg_id, "rpcs_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         add_timestamp(msg_id, "rpcs_sent", (timestamp, topic))
                 elif "IHAVE" in log_content:
                     topic = ext[0]
                     if "Received" in log_content:
                         for msg_id in ext[1]:
-                            add_timestamp(
-                                msg_id, "ihaves_received", (timestamp, topic))
+                            add_timestamp(msg_id, "ihaves_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         for msg_id in ext[1]:
-                            add_timestamp(msg_id, "ihaves_sent",
-                                          (timestamp, topic))
+                            add_timestamp(msg_id, "ihaves_sent", (timestamp, topic))
                 elif "IWANT" in log_content:
                     if "Received" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(
-                                msg_id, "iwants_received", (timestamp, topic))
+                            add_timestamp(msg_id, "iwants_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(msg_id, "iwants_sent",
-                                          (timestamp, topic))
+                            add_timestamp(msg_id, "iwants_sent", (timestamp, topic))
                 elif "IDONTWANT" in log_content:
                     if "Received" in log_content:
                         for msg_id in ext[0]:
                             add_timestamp(
-                                msg_id, "idontwants_received", (
-                                    timestamp, topic)
+                                msg_id, "idontwants_received", (timestamp, topic)
                             )
                     elif "Sent" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(
-                                msg_id, "idontwants_sent", (timestamp, topic))
+                            add_timestamp(msg_id, "idontwants_sent", (timestamp, topic))
                 elif "INEED" in log_content:
                     msg_id = ext[0]
                     if "Received" in log_content:
@@ -195,11 +188,9 @@ def read_node_logs(lines):
                     msg_id = ext[1]
                     topic = ext[0]
                     if "Received" in log_content:
-                        add_timestamp(
-                            msg_id, "iannounces_received", (timestamp, topic))
+                        add_timestamp(msg_id, "iannounces_received", (timestamp, topic))
                     elif "Sent" in log_content:
-                        add_timestamp(msg_id, "iannounces_sent",
-                                      (timestamp, topic))
+                        add_timestamp(msg_id, "iannounces_sent", (timestamp, topic))
         else:
             raise Exception("Couldn't match pattern for timestamps")
 
@@ -274,30 +265,37 @@ if __name__ == "__main__":
 
     timelines = {}
     arr_times = {}
+    # this value is tuned after running this script for a couple times
+    max_arr_time_size = 25.0
+    # this value is tuned after running this script for a couple times
+    max_arr_time_num = 5.0
+
+    announce_list = [0, 7, 8]
+    size_list = [128, 256, 512, 1024, 2048, 4096, 8192]
+    num_list = [1, 2, 4, 8, 16, 32, 64]
 
     # read all simulations
-    for announce in [0, 7, 8]:
-        for msg_size in [128, 256, 512, 1024, 2048]:
-            for num_msgs in [1, 2, 4, 8, 16]:
+    for announce in announce_list:
+        for msg_size in size_list:
+            for num_msgs in num_list:
                 timeline_key = f"{msg_size}-{announce}-{num_msgs}"
-                print(timeline_key)
                 timelines[timeline_key] = extract_node_timelines(
                     f"shadow-{timeline_key}.data", count
                 )
-                arr_times[timeline_key] = analyse_timelines(
-                    timelines[timeline_key])
+                arr_times[timeline_key] = analyse_timelines(timelines[timeline_key])
 
     # 1. plot CDF of arrival times vs. nodes for different message sizes for one msg published
     # three different plots for different Dannounce. Each plot contains 5 CDFs for different sizes
-    for announce in [0, 7, 8]:
+    for announce in announce_list:
         plt.figure(figsize=(8, 6))
-        for msg_size in [128, 256, 512, 1024, 2048]:
+        for msg_size in size_list:
             # only for one message published
             timeline_key = f"{msg_size}-{announce}-1"
             plot_cdf(arr_times[timeline_key], f"{msg_size}KB message")
 
         plt.xlabel("Message Arrival Time")
         plt.ylabel("Cumulative Proportion of Nodes")
+        plt.xlim(0.0, max_arr_time_size)
         plt.title(f"Message Arrival Times for D=8 & Dannounce={announce}")
         plt.grid(True)
         plt.legend()
@@ -305,15 +303,16 @@ if __name__ == "__main__":
 
     # 2. plot CDF of arrival times vs. nodes for different numbers of messages(of same size)  published at the same time
     # three different plots for different Dannounce. Each plot contains 5 CDFs for different num of msgs
-    for announce in [0, 7, 8]:
+    for announce in announce_list:
         plt.figure(figsize=(8, 6))
-        for num_msgs in [1, 2, 4, 8, 16]:
+        for num_msgs in num_list:
             # only for one message published
             timeline_key = f"{128}-{announce}-{num_msgs}"
             plot_cdf(arr_times[timeline_key], f"{num_msgs} num of msgs")
 
         plt.xlabel("Message Arrival Time")
         plt.ylabel("Cumulative Proportion of Nodes")
+        plt.xlim(0.0, max_arr_time_num)
         plt.title(f"Message Arrival Times for D=8 & Dannounce={announce}")
         plt.grid(True)
         plt.legend()

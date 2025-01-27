@@ -4,9 +4,9 @@ export SIM_D=8
 
 go build -linkshared
 
-for kb in 128 256 512 1024 2048; do
+for kb in 128 256 512 1024 2048 4096; do
   for announce in 0 7 8; do
-    for num_msgs in 1 2 4 8 16; do
+    for num_msgs in 1 2 4 8 16 32 64; do
       result=$((kb * 1024))
       filename=shadow-$kb-$announce-$num_msgs
       export SIM_MSG_SIZE=$result
