@@ -1,7 +1,5 @@
 #!/bin/bash
 
-export SIM_D=8
-
 go build -linkshared
 
 for kb in 128 256 512 1024 2048 4096; do
@@ -9,17 +7,13 @@ for kb in 128 256 512 1024 2048 4096; do
     for num_msgs in 1 2 4 8 16 32 64; do
       result=$((kb * 1024))
       filename=shadow-$kb-$announce-$num_msgs
-      export SIM_MSG_SIZE=$result
-      export SIM_ANNOUNCE=$announce
-      export SIM_NUM_MSGS=$num_msgs
-      envsubst < shadow.yaml.template > $filename.yaml
-      cat $filename.yaml | grep args
+      python3 network_graph.py 100 70 $result $num_msgs 8 $announce
 
-      shadow -d $filename.data $filename.yaml
+      shadow -d $filename.data shadow.yaml
 
       tar -czf $filename.tar.gz $filename.data
 
-      rm $filename.yaml
+      rm shadow.yaml
       rm -rf $filename.data
     done
   done
