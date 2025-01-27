@@ -151,33 +151,40 @@ def read_node_logs(lines):
                     msg_id = ext[1]
                     topic = ext[0]
                     if "Received" in log_content:
-                        add_timestamp(msg_id, "rpcs_received", (timestamp, topic))
+                        add_timestamp(msg_id, "rpcs_received",
+                                      (timestamp, topic))
                     elif "Sent" in log_content:
                         add_timestamp(msg_id, "rpcs_sent", (timestamp, topic))
                 elif "IHAVE" in log_content:
                     topic = ext[0]
                     if "Received" in log_content:
                         for msg_id in ext[1]:
-                            add_timestamp(msg_id, "ihaves_received", (timestamp, topic))
+                            add_timestamp(
+                                msg_id, "ihaves_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         for msg_id in ext[1]:
-                            add_timestamp(msg_id, "ihaves_sent", (timestamp, topic))
+                            add_timestamp(msg_id, "ihaves_sent",
+                                          (timestamp, topic))
                 elif "IWANT" in log_content:
                     if "Received" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(msg_id, "iwants_received", (timestamp, topic))
+                            add_timestamp(
+                                msg_id, "iwants_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(msg_id, "iwants_sent", (timestamp, topic))
+                            add_timestamp(msg_id, "iwants_sent",
+                                          (timestamp, topic))
                 elif "IDONTWANT" in log_content:
                     if "Received" in log_content:
                         for msg_id in ext[0]:
                             add_timestamp(
-                                msg_id, "idontwants_received", (timestamp, topic)
+                                msg_id, "idontwants_received", (
+                                    timestamp, topic)
                             )
                     elif "Sent" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(msg_id, "idontwants_sent", (timestamp, topic))
+                            add_timestamp(
+                                msg_id, "idontwants_sent", (timestamp, topic))
                 elif "INEED" in log_content:
                     msg_id = ext[0]
                     if "Received" in log_content:
@@ -188,9 +195,11 @@ def read_node_logs(lines):
                     msg_id = ext[1]
                     topic = ext[0]
                     if "Received" in log_content:
-                        add_timestamp(msg_id, "iannounces_received", (timestamp, topic))
+                        add_timestamp(
+                            msg_id, "iannounces_received", (timestamp, topic))
                     elif "Sent" in log_content:
-                        add_timestamp(msg_id, "iannounces_sent", (timestamp, topic))
+                        add_timestamp(msg_id, "iannounces_sent",
+                                      (timestamp, topic))
         else:
             raise Exception("Couldn't match pattern for timestamps")
 
@@ -275,7 +284,8 @@ if __name__ == "__main__":
                 timelines[timeline_key] = extract_node_timelines(
                     f"shadow-{timeline_key}.data", count
                 )
-                arr_times[timeline_key] = analyse_timelines(timelines[timeline_key])
+                arr_times[timeline_key] = analyse_timelines(
+                    timelines[timeline_key])
 
     # 1. plot CDF of arrival times vs. nodes for different message sizes for one msg published
     # three different plots for different Dannounce. Each plot contains 5 CDFs for different sizes
@@ -311,34 +321,34 @@ if __name__ == "__main__":
 
     # 3. scatter plot of arrival times vs. nodes for different numbers of messages(of same size)  published at the same time
     # three different plots for different Dannounce. Each plot contains 5 CDFs for different num of msgs
-    arr_times_merged = [
-        (*key.split("-"), value)  # Split the key by "-" and merge it with the value
-        for key, values in arr_times.items()
-        for value in values
-    ]
-
-    latencies = {}
-    # reshape by announce values
-    for item in arr_times_merged:
-        announce_value = item[1]  # The second value of the tuple
-        if announce_value not in latencies:
-            latencies[announce_value] = []
-        latencies[announce_value].append((item[0], item[2], item[3]))
-
-    for announce in latencies:
-        latencies_sorted = sorted(latencies[announce], key=lambda x: x[2], reverse=True)
-
-        p95_count = int(len(latencies_sorted) * 0.05)
-
-        p95_latencies = latencies_sorted[:p95_count]
-
-        x_values = [item[0] for item in p95_latencies]
-        y_values = [item[1] for item in p95_latencies]
-
-        plt.figure(figsize=(8, 6))
-        plt.scatter(x_values, y_values)
-        plt.title("Scatter Plot of Msg Size vs Num of Msgs published (later than P95)")
-        plt.xlabel("Msg Size in KB")
-        plt.ylabel("Number of Messages")
-        plt.grid(True)
-        plt.savefig(f"./plots/scatter_{announce}.png")
+#    arr_times_merged = [
+#        (*key.split("-"), value)  # Split the key by "-" and merge it with the value
+#        for key, values in arr_times.items()
+#        for value in values
+#    ]
+#
+#    latencies = {}
+#    # reshape by announce values
+#    for item in arr_times_merged:
+#        announce_value = item[1]  # The second value of the tuple
+#        if announce_value not in latencies:
+#            latencies[announce_value] = []
+#        latencies[announce_value].append((item[0], item[2], item[3]))
+#
+#    for announce in latencies:
+#        latencies_sorted = sorted(latencies[announce], key=lambda x: x[2], reverse=True)
+#
+#        p95_count = int(len(latencies_sorted) * 0.05)
+#
+#        p95_latencies = latencies_sorted[:p95_count]
+#
+#        x_values = [item[0] for item in p95_latencies]
+#        y_values = [item[1] for item in p95_latencies]
+#
+#        plt.figure(figsize=(8, 6))
+#        plt.scatter(x_values, y_values)
+#        plt.title("Scatter Plot of Msg Size vs Num of Msgs published (later than P95)")
+#        plt.xlabel("Msg Size in KB")
+#        plt.ylabel("Number of Messages")
+#        plt.grid(True)
+#        plt.savefig(f"./plots/scatter_{announce}.png")
