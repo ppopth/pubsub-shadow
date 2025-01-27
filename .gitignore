@@ -1,3 +1,5 @@
 *.swp
 /shadow.data
+/shadow.yaml
+/graph.gml
 /pubsub-shadow
