@@ -16,8 +16,6 @@ The number of nodes shown is 100. Change it correspondingly.
 
 ## Run the simulation
 
-
-### Manual
 Remove the old simulation result first.
 ```bash
 rm -rf shadow.data

@@ -286,15 +286,6 @@ if __name__ == "__main__":
     # read all simulations
     for announce in announce_list:
         for msg_size in size_list:
-            if msg_size == 128:
-                for num_msgs in num_list:
-                    timeline_key = f"{msg_size}-{announce}-{num_msgs}"
-                    timelines[timeline_key] = extract_node_timelines(
-                        f"shadow-{timeline_key}.data", count
-                    )
-                    arr_times[timeline_key] = analyse_timelines(
-                        timelines[timeline_key])
-
             timeline_key = f"{msg_size}-{announce}-1"
             timelines[timeline_key] = extract_node_timelines(
                 f"shadow-{timeline_key}.data", count
@@ -302,7 +293,17 @@ if __name__ == "__main__":
             arr_times[timeline_key] = analyse_timelines(
                 timelines[timeline_key])
 
-    # 1. plot CDF of arrival times vs. nodes for different message sizes for one msg published
+    # read all simulations
+    for announce in announce_list:
+        for num_msgs in num_list:
+            timeline_key = f"128-{announce}-{num_msgs}"
+            timelines[timeline_key] = extract_node_timelines(
+                f"shadow-{timeline_key}.data", count
+            )
+            arr_times[timeline_key] = analyse_timelines(
+                timelines[timeline_key])
+
+            # 1. plot CDF of arrival times vs. nodes for different message sizes for one msg published
     # three different plots for different Dannounce. Each plot contains 5 CDFs for different sizes
     for announce in announce_list:
         plt.figure(figsize=(8, 6))
@@ -335,37 +336,3 @@ if __name__ == "__main__":
         plt.grid(True)
         plt.legend()
         plt.savefig(f"./plots/cdf_num_{announce}.png")
-
-    # 3. scatter plot of arrival times vs. nodes for different numbers of messages(of same size)  published at the same time
-    # three different plots for different Dannounce. Each plot contains 5 CDFs for different num of msgs
-#    arr_times_merged = [
-#        (*key.split("-"), value)  # Split the key by "-" and merge it with the value
-#        for key, values in arr_times.items()
-#        for value in values
-#    ]
-#
-#    latencies = {}
-#    # reshape by announce values
-#    for item in arr_times_merged:
-#        announce_value = item[1]  # The second value of the tuple
-#        if announce_value not in latencies:
-#            latencies[announce_value] = []
-#        latencies[announce_value].append((item[0], item[2], item[3]))
-#
-#    for announce in latencies:
-#        latencies_sorted = sorted(latencies[announce], key=lambda x: x[2], reverse=True)
-#
-#        p95_count = int(len(latencies_sorted) * 0.05)
-#
-#        p95_latencies = latencies_sorted[:p95_count]
-#
-#        x_values = [item[0] for item in p95_latencies]
-#        y_values = [item[1] for item in p95_latencies]
-#
-#        plt.figure(figsize=(8, 6))
-#        plt.scatter(x_values, y_values)
-#        plt.title("Scatter Plot of Msg Size vs Num of Msgs published (later than P95)")
-#        plt.xlabel("Msg Size in KB")
-#        plt.ylabel("Number of Messages")
-#        plt.grid(True)
-#        plt.savefig(f"./plots/scatter_{announce}.png")
