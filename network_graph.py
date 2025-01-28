@@ -116,6 +116,11 @@ edges = [
 ]
 
 node_count = int(sys.argv[1])
+target_conn = int(sys.argv[2])
+msg_size = int(sys.argv[3])
+num_msgs = int(sys.argv[4])
+d_mesh = int(sys.argv[5])
+d_announce = int(sys.argv[6])
 
 ids = {}
 for node_type in node_types:
@@ -149,7 +154,7 @@ for i in range(node_count):
     config["hosts"][f"node{i}"] = {
         "network_node_id": ids[f"{location.name}-{node_type.name}"],
         "processes": [{
-            "args": f"-count {node_count} -target 35 -size 128 -D 8 -Dannounce 0",
+            "args": f"-count {node_count} -target {target_conn} -n {num_msgs} -size {msg_size} -D {d_mesh} -Dannounce {d_announce}",
             "expected_final_state": "running",
             "path": "./pubsub-shadow",
         }],

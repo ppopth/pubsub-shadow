@@ -1,70 +1,338 @@
 import re
+import sys
+import numpy as np
+import matplotlib.pyplot as plt
 from datetime import datetime
-import numpy
 
 # Define the updated regex pattern
 line_pattern = r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{6})\s+(.*)"
-rx_pattern = r"from (\S+): (\d+)"
-BASE_PATH = "./shadow.data/hosts/node"
+paranthesis_pattern = r"\((.*?)\)"
+
+BASE_PATH = "/hosts/node"
 STDOUT_LOGFILE = "/pubsub-shadow.1000.stdout"
 
-timestamps = []
 
-
-# Open the file and read it line by line
-def read_node_logs(id):
-    rx = []
-    tx = []
-    with open(
-        BASE_PATH + str(id) + STDOUT_LOGFILE, "r", encoding="utf-8", errors="replace"
-    ) as f:
-        for line in f:
-            dups = 0
-            match = re.match(line_pattern, line.strip())
-            if match:
-                log_date_time = match.group(1)  # Date (YYYY/MM/DD)
-                log_content = match.group(2)  # Log content
-
-                timestamp = datetime.strptime(
-                    log_date_time, "%Y/%m/%d %H:%M:%S.%f"
-                ).timestamp()
-
-                timestamps.append(timestamp)
-
-                if "Total numbe of duplicates received" in log_content:
-                    new_num_dups = int(log_content.split(": ")[1])
-                    if new_num_dups > dups:
-                        dups = new_num_dups
-                elif "Received a message from" in log_content:
-                    rxmatch = re.match(rx_pattern, log_content.strip())
-                    if rxmatch:
-                        log_from = rxmatch.group(1)
-                        log_size = rxmatch.group(2)
-                        rx.append(
-                            {"from": log_from, "size": log_size,
-                                "timestamp": timestamp}
-                        )
-                    else:
-                        raise Exception(
-                            'Couldn\'t match pattern for "Received Message"'
-                        )
-                elif "Published message by node" in log_content:
-                    tx.append({"from": id, "timestamp": timestamp})
+def extract_data(log_line):
+    info_match = re.search(paranthesis_pattern, log_line)
+    values = []
+    if info_match:
+        pairs = (info_match.group(1)).split(", ")
+        for item in pairs:
+            value = item.split(": ")[1]
+            if "[" in value:
+                matches = re.findall(r'"([^"]+)"', value)
+                values.append(matches)
             else:
-                raise Exception(
-                    'Couldn\'t match pattern for "Received Message"')
-    return {"rx": rx, "tx": tx, "dups": dups}
+                values.append(value)
+    else:
+        raise Exception("couldn't extract content for log_line" + log_line)
+
+    return values
 
 
-def extract_all_logs(count):
+def read_node_logs(lines):
+    timelines = {
+        "added": [],
+        "removed": [],
+        "throttled": [],
+        "joined": [],
+        "left": [],
+        "grafted": [],
+        "pruned": [],
+        "msgs": {},
+    }
+
+    def add_timestamp(msg_id, key, timestamp):
+        if msg_id is None:
+            timelines[key].append(timestamp)
+            return
+
+        msg_id = msg_id.replace('"', "")
+
+        if msg_id not in timelines["msgs"]:
+            timelines["msgs"][msg_id] = {
+                "validated": [],
+                "delivered": [],
+                "rejected": [],
+                "received": [],
+                "published": [],
+                "duplicate": [],
+                "undelivered": [],
+                "idontwants_sent": [],
+                "idontwants_received": [],
+                "ihaves_sent": [],
+                "ihaves_received": [],
+                "iwants_sent": [],
+                "iwants_received": [],
+                "iannounces_sent": [],
+                "iannounces_received": [],
+                "ineeds_sent": [],
+                "ineeds_received": [],
+                # these are publish messages of the rpc
+                "rpcs_sent": [],
+                "rpcs_received": [],
+            }
+
+        timelines["msgs"][msg_id][key].append(timestamp)
+
+    for line in lines:
+        match = re.match(line_pattern, line.strip())
+        if match:
+            log_date_time = match.group(1)  # Date (YYYY/MM/DD)
+            log_content = match.group(2)  # Log content
+
+            timestamp = datetime.strptime(
+                log_date_time, "%Y/%m/%d %H:%M:%S.%f"
+            ).timestamp()
+
+            if "GossipSub: Duplicated" in log_content:
+                ext = extract_data(log_content)
+                msg_id = ext[0]
+                add_timestamp(msg_id, "duplicate", (timestamp))
+            elif "Received:" in log_content:
+                ext = extract_data(log_content)
+                msg_id = ext[1]
+                topic = ext[0]
+                add_timestamp(msg_id, "received", (timestamp, topic))
+            elif "Published:" in log_content:
+                ext = extract_data(log_content)
+                msg_id = ext[1]
+                topic = ext[0]
+                add_timestamp(msg_id, "published", (timestamp, topic))
+            elif "GossipSub: Rejected" in log_content:
+                ext = extract_data(log_content)
+                msg_id = ext[0]
+                add_timestamp(msg_id, "rejected", (timestamp))
+            elif "GossipSub: Delivered" in log_content:
+                ext = extract_data(log_content)
+                msg_id = ext[0]
+                add_timestamp(msg_id, "delivered", (timestamp))
+            elif "GossipSub: Undeliverable" in log_content:
+                ext = extract_data(log_content)
+                msg_id = ext[0]
+                add_timestamp(msg_id, "undelivered", (timestamp))
+            elif "GossipSub: Validated" in log_content:
+                ext = extract_data(log_content)
+                msg_id = ext[0]
+                add_timestamp(msg_id, "validated", (timestamp))
+            elif "GossipSub: Grafted" in log_content:
+                ext = extract_data(log_content)
+                peer_id = ext[1]
+                topic = ext[0]
+                add_timestamp(None, "grafted", (timestamp, topic, peer_id))
+            elif "GossipSub: Pruned" in log_content:
+                ext = extract_data(log_content)
+                peer_id = ext[1]
+                topic = ext[0]
+                add_timestamp(None, "pruned", (timestamp, topic, peer_id))
+            elif "GossipSub: Joined" in log_content:
+                ext = extract_data(log_content)
+                topic = ext[0]
+                add_timestamp(None, "joined", (timestamp, topic))
+            elif "GossipSub: Left" in log_content:
+                ext = extract_data(log_content)
+                topic = ext[0]
+                add_timestamp(None, "left", (timestamp, topic))
+            elif "GossipSub: Peer Removed" in log_content:
+                ext = extract_data(log_content)
+                peer_id = ext[0]
+                add_timestamp(None, "removed", (timestamp, peer_id))
+            elif "GossipSub: Peer Added" in log_content:
+                ext = extract_data(log_content)
+                peer_id = ext[0]
+                add_timestamp(None, "added", (timestamp, topic))
+            elif "GossipSub: Throttled" in log_content:
+                ext = extract_data(log_content)
+                peer_id = ext[0]
+                add_timestamp(None, "throttled", (timestamp, peer_id))
+            elif "GossipSubRPC:" in log_content:
+                ext = extract_data(log_content)
+                if "Publish" in log_content:
+                    msg_id = ext[1]
+                    topic = ext[0]
+                    if "Received" in log_content:
+                        add_timestamp(msg_id, "rpcs_received",
+                                      (timestamp, topic))
+                    elif "Sent" in log_content:
+                        add_timestamp(msg_id, "rpcs_sent", (timestamp, topic))
+                elif "IHAVE" in log_content:
+                    topic = ext[0]
+                    if "Received" in log_content:
+                        for msg_id in ext[1]:
+                            add_timestamp(
+                                msg_id, "ihaves_received", (timestamp, topic))
+                    elif "Sent" in log_content:
+                        for msg_id in ext[1]:
+                            add_timestamp(msg_id, "ihaves_sent",
+                                          (timestamp, topic))
+                elif "IWANT" in log_content:
+                    if "Received" in log_content:
+                        for msg_id in ext[0]:
+                            add_timestamp(
+                                msg_id, "iwants_received", (timestamp, topic))
+                    elif "Sent" in log_content:
+                        for msg_id in ext[0]:
+                            add_timestamp(msg_id, "iwants_sent",
+                                          (timestamp, topic))
+                elif "IDONTWANT" in log_content:
+                    if "Received" in log_content:
+                        for msg_id in ext[0]:
+                            add_timestamp(
+                                msg_id, "idontwants_received", (
+                                    timestamp, topic)
+                            )
+                    elif "Sent" in log_content:
+                        for msg_id in ext[0]:
+                            add_timestamp(
+                                msg_id, "idontwants_sent", (timestamp, topic))
+                elif "INEED" in log_content:
+                    msg_id = ext[0]
+                    if "Received" in log_content:
+                        add_timestamp(msg_id, "ineeds_received", (timestamp))
+                    elif "Sent" in log_content:
+                        add_timestamp(msg_id, "ineeds_sent", (timestamp))
+                elif "IANNOUNCE" in log_content:
+                    msg_id = ext[1]
+                    topic = ext[0]
+                    if "Received" in log_content:
+                        add_timestamp(
+                            msg_id, "iannounces_received", (timestamp, topic))
+                    elif "Sent" in log_content:
+                        add_timestamp(msg_id, "iannounces_sent",
+                                      (timestamp, topic))
+        else:
+            raise Exception("Couldn't match pattern for timestamps")
+
+    return timelines
+
+
+def extract_node_timelines(folder, count):
     extracted_data = {}
     for id in range(count):
-        extracted_data[id] = read_node_logs(id)
+        with open(
+            folder + BASE_PATH + str(id) + STDOUT_LOGFILE,
+            "r",
+            encoding="utf-8",
+            errors="replace",
+        ) as f:
+            logs = f.readlines()
+            extracted_data[id] = read_node_logs(logs)
+
+    return extracted_data
+
+
+def analyse_timelines(extracted_data):
+    arrival_times = []
+
+    # we know node 0 is the publiisher
+    timeline = extracted_data[0]["msgs"]
+    publishing_time = -1
+    for msg_id in timeline:
+        if len(timeline[msg_id]["published"]) > 0:
+            # since every messaage is published only once we don't need to sort
+            temp_time = (timeline[msg_id]["published"][0])[0]
+
+            # published time is the time at which the first message was published
+            if publishing_time < 0 or temp_time < publishing_time:
+                publishing_time = temp_time
+        else:
+            raise Exception("node did not publish")
 
     for id in extracted_data:
-        if len(extracted_data[id]["tx"]) > 0:
-            print(id, extracted_data[id]["tx"])
+        timeline = extracted_data[id]["msgs"]
+        receiving_time = -1
+        for msg_id in timeline:
+            if len(timeline[msg_id]["delivered"]) > 0:
+                # the first time we received a particular msg_id
+                temp_time = sorted(timeline[msg_id]["delivered"])[0]
+            else:
+                temp_time = -1
+
+            # received time is the time at which the last message (any msg_id) was received
+            if receiving_time < 0 or temp_time > receiving_time:
+                receiving_time = temp_time
+
+        if receiving_time < 0:  # the node for some reason did not receive any messages
+            continue  # TODO: there must be implication of this on the plot. Resolve them
+
+        arrival_times.append((id, receiving_time - publishing_time))
+
+    return arrival_times
+
+
+def plot_cdf(data, label):
+    x = [v for _, v in data]
+    y = np.arange(len(data)) / float(len(data))
+
+    x.sort()
+
+    plt.plot(x, y, label=label)
 
 
 if __name__ == "__main__":
-    extract_all_logs(5000)
+    count = int(sys.argv[1])
+
+    timelines = {}
+    arr_times = {}
+    # this value is tuned after running this script for a couple times
+    max_arr_time_size = 25.0
+    # this value is tuned after running this script for a couple times
+    max_arr_time_num = 5.0
+
+    announce_list = [0, 7, 8]
+    size_list = [128, 256, 512, 1024, 2048, 4096, 8192]
+    num_list = [1, 2, 4, 8, 16, 32, 64]
+
+    # read all simulations
+    for announce in announce_list:
+        for msg_size in size_list:
+            timeline_key = f"{msg_size}-{announce}-1"
+            timelines[timeline_key] = extract_node_timelines(
+                f"shadow-{timeline_key}.data", count
+            )
+            arr_times[timeline_key] = analyse_timelines(
+                timelines[timeline_key])
+
+    # read all simulations
+    for announce in announce_list:
+        for num_msgs in num_list:
+            timeline_key = f"128-{announce}-{num_msgs}"
+            timelines[timeline_key] = extract_node_timelines(
+                f"shadow-{timeline_key}.data", count
+            )
+            arr_times[timeline_key] = analyse_timelines(
+                timelines[timeline_key])
+
+            # 1. plot CDF of arrival times vs. nodes for different message sizes for one msg published
+    # three different plots for different Dannounce. Each plot contains 5 CDFs for different sizes
+    for announce in announce_list:
+        plt.figure(figsize=(8, 6))
+        for msg_size in size_list:
+            # only for one message published
+            timeline_key = f"{msg_size}-{announce}-1"
+            plot_cdf(arr_times[timeline_key], f"{msg_size}KB message")
+
+        plt.xlabel("Message Arrival Time")
+        plt.ylabel("Cumulative Proportion of Nodes")
+        plt.xlim(0.0, max_arr_time_size)
+        plt.title(f"Message Arrival Times for D=8 & Dannounce={announce}")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(f"./plots/cdf_sizes_{announce}.png")
+
+    # 2. plot CDF of arrival times vs. nodes for different numbers of messages(of same size)  published at the same time
+    # three different plots for different Dannounce. Each plot contains 5 CDFs for different num of msgs
+    for announce in announce_list:
+        plt.figure(figsize=(8, 6))
+        for num_msgs in num_list:
+            # only for one message published
+            timeline_key = f"{128}-{announce}-{num_msgs}"
+            plot_cdf(arr_times[timeline_key], f"{num_msgs} num of msgs")
+
+        plt.xlabel("Message Arrival Time")
+        plt.ylabel("Cumulative Proportion of Nodes")
+        plt.xlim(0.0, max_arr_time_num)
+        plt.title(f"Message Arrival Times for D=8 & Dannounce={announce}")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(f"./plots/cdf_num_{announce}.png")

@@ -2,4 +2,12 @@
 /shadow.data
 /shadow.yaml
 /graph.gml
+=======
+/*.data
+/**/*/*.tar.gz
 /pubsub-shadow
+/venv
+/plots
+.DS_Store
+Dockerfile
+docker-compose.yml
