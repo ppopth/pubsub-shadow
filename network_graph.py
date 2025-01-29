@@ -37,7 +37,9 @@ na_west = Location("na_west", 1240)
 south_africa = Location("south_africa", 47)
 south_america = Location("south_america", 36)
 
-node_types = [NodeType("supernode", 1024, 1024, 20), NodeType("fullnode", 50, 50, 80)]
+supernode = NodeType("supernode", 1024, 1024, 20)
+fullnode = NodeType("fullnode", 50, 50, 80)
+node_types = [supernode, fullnode]
 
 locations = [australia, europe, east_asia, west_asia, na_east, na_west, south_africa, south_america]
 
@@ -149,7 +151,10 @@ config["network"] = {"graph": {"type": "gml", "file": {"path": "graph.gml"}}}
 config["hosts"] = {}
 for i in range(node_count):
     location = random.choices(locations, map(lambda lc: lc.weight, locations))[0]
-    node_type = random.choices(node_types, map(lambda nt: nt.weight, node_types))[0]
+    if i == 0:
+        node_type = supernode
+    else:
+        node_type = random.choices(node_types, map(lambda nt: nt.weight, node_types))[0]
 
     config["hosts"][f"node{i}"] = {
         "network_node_id": ids[f"{location.name}-{node_type.name}"],
