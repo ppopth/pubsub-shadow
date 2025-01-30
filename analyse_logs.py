@@ -1,4 +1,6 @@
 import re
+import json
+import glob
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
@@ -151,40 +153,33 @@ def read_node_logs(lines):
                     msg_id = ext[1]
                     topic = ext[0]
                     if "Received" in log_content:
-                        add_timestamp(msg_id, "rpcs_received",
-                                      (timestamp, topic))
+                        add_timestamp(msg_id, "rpcs_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         add_timestamp(msg_id, "rpcs_sent", (timestamp, topic))
                 elif "IHAVE" in log_content:
                     topic = ext[0]
                     if "Received" in log_content:
                         for msg_id in ext[1]:
-                            add_timestamp(
-                                msg_id, "ihaves_received", (timestamp, topic))
+                            add_timestamp(msg_id, "ihaves_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         for msg_id in ext[1]:
-                            add_timestamp(msg_id, "ihaves_sent",
-                                          (timestamp, topic))
+                            add_timestamp(msg_id, "ihaves_sent", (timestamp, topic))
                 elif "IWANT" in log_content:
                     if "Received" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(
-                                msg_id, "iwants_received", (timestamp, topic))
+                            add_timestamp(msg_id, "iwants_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(msg_id, "iwants_sent",
-                                          (timestamp, topic))
+                            add_timestamp(msg_id, "iwants_sent", (timestamp, topic))
                 elif "IDONTWANT" in log_content:
                     if "Received" in log_content:
                         for msg_id in ext[0]:
                             add_timestamp(
-                                msg_id, "idontwants_received", (
-                                    timestamp, topic)
+                                msg_id, "idontwants_received", (timestamp, topic)
                             )
                     elif "Sent" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(
-                                msg_id, "idontwants_sent", (timestamp, topic))
+                            add_timestamp(msg_id, "idontwants_sent", (timestamp, topic))
                 elif "INEED" in log_content:
                     msg_id = ext[0]
                     if "Received" in log_content:
@@ -195,11 +190,9 @@ def read_node_logs(lines):
                     msg_id = ext[1]
                     topic = ext[0]
                     if "Received" in log_content:
-                        add_timestamp(
-                            msg_id, "iannounces_received", (timestamp, topic))
+                        add_timestamp(msg_id, "iannounces_received", (timestamp, topic))
                     elif "Sent" in log_content:
-                        add_timestamp(msg_id, "iannounces_sent",
-                                      (timestamp, topic))
+                        add_timestamp(msg_id, "iannounces_sent", (timestamp, topic))
         else:
             raise Exception("Couldn't match pattern for timestamps")
 
@@ -216,48 +209,89 @@ def extract_node_timelines(folder, count):
             errors="replace",
         ) as f:
             logs = f.readlines()
-            extracted_data[id] = read_node_logs(logs)
+            extracted_data[str(id)] = read_node_logs(logs)
 
     return extracted_data
 
 
-def analyse_timelines(extracted_data):
-    arrival_times = []
+def analyse_timelines(extracted_data, shouldhave):
+    arrival_times = {}
+    rx_msgs = []
+    dup_msgs = []
 
     # we know node 0 is the publiisher
-    timeline = extracted_data[0]["msgs"]
-    publishing_time = -1
+    timeline = extracted_data["0"]["msgs"]
+
+    publishing_times = {}
+    first_publish = 0
+    last_publish = 0
     for msg_id in timeline:
         if len(timeline[msg_id]["published"]) > 0:
             # since every messaage is published only once we don't need to sort
-            temp_time = (timeline[msg_id]["published"][0])[0]
+            publishing_times[msg_id] = (timeline[msg_id]["published"][0])[0]
 
-            # published time is the time at which the first message was published
-            if publishing_time < 0 or temp_time < publishing_time:
-                publishing_time = temp_time
+            if first_publish == 0 or publishing_times[msg_id] < first_publish:
+                first_publish = publishing_times[msg_id]
+
+            if publishing_times[msg_id] > last_publish:
+                last_publish = publishing_times[msg_id]
         else:
-            raise Exception("node did not publish")
+            pass
 
     for id in extracted_data:
         timeline = extracted_data[id]["msgs"]
-        receiving_time = -1
+
+        dups = 0
+        received = 0
+
+        rx_times = {}
+        first_receive = 0.0
+        last_receive = 0.0
+
         for msg_id in timeline:
             if len(timeline[msg_id]["delivered"]) > 0:
                 # the first time we received a particular msg_id
-                temp_time = sorted(timeline[msg_id]["delivered"])[0]
+                rx_times[msg_id] = sorted(timeline[msg_id]["delivered"])[0]
+
+                # received time is the time at which the last message (any msg_id) was received
+                if first_receive == 0.0 or rx_times[msg_id] < first_receive:
+                    first_receive = rx_times[msg_id]
+
+                if rx_times[msg_id] > last_receive:
+                    last_receive = rx_times[msg_id]
+
+                received += 1
+
             else:
-                temp_time = -1
+                rx_times[msg_id] = 0.0
 
-            # received time is the time at which the last message (any msg_id) was received
-            if receiving_time < 0 or temp_time > receiving_time:
-                receiving_time = temp_time
+            dups += len(timeline[msg_id]["duplicate"])
 
-        if receiving_time < 0:  # the node for some reason did not receive any messages
+            if msg_id not in arrival_times:
+                arrival_times[msg_id] = []
+
+            # this can be negative if the message was not received
+            arrival_times[msg_id].append(
+                (id, rx_times[msg_id] - publishing_times[msg_id])
+            )
+
+        rx_msgs.append(shouldhave - received)
+        dup_msgs.append(dups)
+
+        if first_receive == 0.0 or last_receive == 0.0:
+            # the node for some reason did not receive any messages
             continue  # TODO: there must be implication of this on the plot. Resolve them
 
-        arrival_times.append((id, receiving_time - publishing_time))
+        if "f2l" not in arrival_times:
+            arrival_times["f2l"] = []
 
-    return arrival_times
+        if "l2f" not in arrival_times:
+            arrival_times["l2f"] = []
+
+        arrival_times["f2l"].append((id, last_receive - first_publish))
+        arrival_times["l2f"].append((id, first_receive - last_publish))
+
+    return arrival_times, rx_msgs, dup_msgs
 
 
 def plot_cdf(data, label):
@@ -271,46 +305,67 @@ def plot_cdf(data, label):
 
 if __name__ == "__main__":
     count = int(sys.argv[1])
+    reparse = True
 
     timelines = {}
-    arr_times = {}
     # this value is tuned after running this script for a couple times
-    max_arr_time_size = 25.0
+    max_arr_time_size = 20.0
     # this value is tuned after running this script for a couple times
-    max_arr_time_num = 5.0
+    max_arr_time_num = 20.0
 
     announce_list = [0, 7, 8]
     size_list = [128, 256, 512, 1024, 2048, 4096, 8192]
     num_list = [1, 2, 4, 8, 16, 32, 64]
 
-    # read all simulations
-    for announce in announce_list:
-        for msg_size in size_list:
-            timeline_key = f"{msg_size}-{announce}-1"
-            timelines[timeline_key] = extract_node_timelines(
-                f"shadow-{timeline_key}.data", count
-            )
-            arr_times[timeline_key] = analyse_timelines(
-                timelines[timeline_key])
+    files = glob.glob("*.tln.json")
+    if len(files) > 0:
+        print("Found saved timelines")
+        for i, file in enumerate(files):
+            print(f"{i+1}. {file}")
+        use_saved = input(f"Enter which timeline file to use ({1}-{len(files)}/n):")
+        idx = ord(use_saved) - 49
+        if idx >= 0 and idx < len(files):
+            reparse = False
+            with open(files[idx], "r") as f:
+                print("Loading timeline file")
+                timelines = json.load(f)
 
-    # read all simulations
-    for announce in announce_list:
-        for num_msgs in num_list:
-            timeline_key = f"128-{announce}-{num_msgs}"
-            timelines[timeline_key] = extract_node_timelines(
-                f"shadow-{timeline_key}.data", count
-            )
-            arr_times[timeline_key] = analyse_timelines(
-                timelines[timeline_key])
+    if reparse:
+        print("Parsing log files")
+        # read all simulations
+        for announce in announce_list:
+            for msg_size in size_list:
+                timeline_key = f"{msg_size}-{announce}-1"
+                print(timeline_key)
+                timelines[timeline_key] = extract_node_timelines(
+                    f"shadow-{timeline_key}.data", count
+                )
 
-            # 1. plot CDF of arrival times vs. nodes for different message sizes for one msg published
+        # read all simulations
+        for announce in announce_list:
+            for num_msgs in num_list:
+                timeline_key = f"128-{announce}-{num_msgs}"
+                print(timeline_key)
+                timelines[timeline_key] = extract_node_timelines(
+                    f"shadow-{timeline_key}.data", count
+                )
+
+        with open("analysed_timeline.tln.json", "w") as f:
+            json.dump(timelines, f)
+
+    # 1. plot CDF of arrival times vs. nodes for different message sizes for one msg published
     # three different plots for different Dannounce. Each plot contains 5 CDFs for different sizes
     for announce in announce_list:
+        print(f"\nAnnouncement Degree = {announce}\n")
         plt.figure(figsize=(8, 6))
         for msg_size in size_list:
+            print(f"\tAnalysis for 1 {msg_size}KB msgs")
             # only for one message published
             timeline_key = f"{msg_size}-{announce}-1"
-            plot_cdf(arr_times[timeline_key], f"{msg_size}KB message")
+            arr_times, rx_count, dups = analyse_timelines(timelines[timeline_key], 1)
+            plot_cdf(arr_times["f2l"], f"{msg_size}KB message")
+            print(f"\t\tAverage num. of dups: {sum(dups)/count}")
+            print(f"\t\tAverage num. lost: {sum(rx_count)/count}")
 
         plt.xlabel("Message Arrival Time")
         plt.ylabel("Cumulative Proportion of Nodes")
@@ -319,15 +374,21 @@ if __name__ == "__main__":
         plt.grid(True)
         plt.legend()
         plt.savefig(f"./plots/cdf_sizes_{announce}.png")
+        print("plot saved")
 
     # 2. plot CDF of arrival times vs. nodes for different numbers of messages(of same size)  published at the same time
     # three different plots for different Dannounce. Each plot contains 5 CDFs for different num of msgs
     for announce in announce_list:
+        print(f"\nAnnouncement Degree = {announce}\n")
         plt.figure(figsize=(8, 6))
         for num_msgs in num_list:
+            print(f"\tAnalysis for {num_msgs} 128KB msgs")
             # only for one message published
             timeline_key = f"{128}-{announce}-{num_msgs}"
-            plot_cdf(arr_times[timeline_key], f"{num_msgs} num of msgs")
+            arr_times, rx_count, dups = analyse_timelines(timelines[timeline_key], num_msgs)
+            plot_cdf(arr_times["f2l"], f"{num_msgs} num of msgs")
+            print(f"\t\tAverage num. of dups: {sum(dups)/count}")
+            print(f"\t\tAverage num. lost: {sum(rx_count)/count}")
 
         plt.xlabel("Message Arrival Time")
         plt.ylabel("Cumulative Proportion of Nodes")
@@ -336,3 +397,4 @@ if __name__ == "__main__":
         plt.grid(True)
         plt.legend()
         plt.savefig(f"./plots/cdf_num_{announce}.png")
+        print("plot saved")
