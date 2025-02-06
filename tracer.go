@@ -3,16 +3,69 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/base64"
-	"log"
+	"fmt"
 
+	"github.com/btcsuite/btcutil/base58"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"log"
 )
 
+var _ = pubsub.EventTracer(eventTracer{})
 var _ = pubsub.RawTracer(gossipTracer{})
 
 type gossipTracer struct{}
+type eventTracer struct{}
+
+func (t eventTracer) logRpcEvt(action string, controlData *pb.TraceEvent_ControlMeta, suffix string) {
+
+	// we only log control messages here
+	if len(controlData.GetIhave()) > 0 {
+		for _, msg := range controlData.GetIhave() {
+			log.Printf("GossipSubRPC: %s IHAVE (topic: %s, ids: %q%s)\n",
+				action, msg.GetTopic(), msg.GetMessageIDs(), suffix)
+		}
+	} else if len(controlData.GetIwant()) > 0 {
+		for _, msg := range controlData.GetIwant() {
+			log.Printf("GossipSubRPC: %s IWANT (ids: %q%s)\n",
+				action, msg.GetMessageIDs(), suffix)
+		}
+	} else if len(controlData.GetIdontwant()) > 0 {
+		for _, msg := range controlData.GetIdontwant() {
+			log.Printf("GossipSubRPC: %s IDONTWANT (ids: %q%s)\n",
+				action, msg.GetMessageIDs(), suffix)
+		}
+	} else if len(controlData.GetIannounce()) > 0 {
+		for _, msg := range controlData.GetIannounce() {
+			log.Printf("GossipSubRPC: %s IANNOUNCE (topic: %s, id: %s%s)\n",
+				action, msg.GetTopic(), msg.GetMessageID(), suffix)
+		}
+	} else if len(controlData.GetIneed()) > 0 {
+		for _, msg := range controlData.GetIneed() {
+			log.Printf("GossipSubRPC: %s INEED (id: %s%s)\n",
+				action, msg.GetMessageID(), suffix)
+		}
+	}
+
+}
+
+func (t eventTracer) Trace(evt *pb.TraceEvent) {
+
+	if evt.GetType() == pb.TraceEvent_RECV_RPC {
+		// we only log control messages here
+		from := base58.Encode(evt.GetRecvRPC().GetReceivedFrom())
+		suffix := fmt.Sprintf(", from: %s", from)
+		t.logRpcEvt("Received", evt.GetRecvRPC().GetMeta().GetControl(), suffix)
+	} else if evt.GetType() == pb.TraceEvent_SEND_RPC {
+		// we only log control messages here
+		to := base58.Encode(evt.GetSendRPC().GetSendTo())
+		suffix := fmt.Sprintf(", to: %s", to)
+		t.logRpcEvt("Sent", evt.GetRecvRPC().GetMeta().GetControl(), suffix)
+	}
+
+}
 
 func CalcID(msg []byte) string {
 	hasher := sha256.New()
@@ -52,27 +105,27 @@ func (g gossipTracer) Prune(p peer.ID, topic string) {
 
 // ValidateMessage .
 func (g gossipTracer) ValidateMessage(msg *pubsub.Message) {
-	log.Printf("GossipSub: Validate (id: %s)\n", msg.ID)
+	log.Printf("GossipSub: Validate (id: %s, from: %s)\n", msg.ID, msg.ReceivedFrom.String())
 }
 
 // DeliverMessage .
 func (g gossipTracer) DeliverMessage(msg *pubsub.Message) {
-	log.Printf("GossipSub: Delivered (id: %s)\n", msg.ID)
+	log.Printf("GossipSub: Delivered (id: %s, from: %s)\n", msg.ID, msg.ReceivedFrom.String())
 }
 
 // RejectMessage .
 func (g gossipTracer) RejectMessage(msg *pubsub.Message, reason string) {
-	log.Printf("GossipSub: Rejected (id: %s, reason: %s)\n", msg.ID, reason)
+	log.Printf("GossipSub: Rejected (id: %s, from: %s, reason: %s)\n", msg.ID, msg.ReceivedFrom.String(), reason)
 }
 
 // DuplicateMessage .
 func (g gossipTracer) DuplicateMessage(msg *pubsub.Message) {
-	log.Printf("GossipSub: Duplicated (id: %s)\n", msg.ID)
+	log.Printf("GossipSub: Duplicated (id: %s, from: %s)\n", msg.ID, msg.ReceivedFrom.String())
 }
 
 // UndeliverableMessage .
 func (g gossipTracer) UndeliverableMessage(msg *pubsub.Message) {
-	log.Printf("GossipSub: Undeliverable (id: %s)\n", msg.ID)
+	log.Printf("GossipSub: Undeliverable (id: %s, from: %s)\n", msg.ID, msg.ReceivedFrom.String())
 }
 
 // ThrottlePeer .
@@ -81,46 +134,14 @@ func (g gossipTracer) ThrottlePeer(p peer.ID) {
 }
 
 // RecvRPC .
-func (g gossipTracer) logRPC(rpc *pubsub.RPC, to string, action string) {
-	var suffix string = ""
-	if len(to) > 0 {
-		suffix += ", to: " + to
-	}
+func (g gossipTracer) logRPC(rpc *pubsub.RPC, suffix string, action string) {
 
 	if rpc.Control == nil {
 		for _, msg := range rpc.Publish {
 			log.Printf("GossipSubRPC: %s Publish (topic: %s, id: %s%s)\n",
 				action, *msg.Topic, CalcID(msg.Data), suffix)
 		}
-	} else {
-		if len(rpc.Control.Ihave) > 0 {
-			for _, msg := range rpc.Control.Ihave {
-				log.Printf("GossipSubRPC: %s IHAVE (topic: %s, ids: %q%s)\n",
-					action, *msg.TopicID, msg.MessageIDs, suffix)
-			}
-		} else if len(rpc.Control.Iwant) > 0 {
-			for _, msg := range rpc.Control.Iwant {
-				log.Printf("GossipSubRPC: %s IWANT (ids: %q%s)\n",
-					action, msg.MessageIDs, suffix)
-			}
-		} else if len(rpc.Control.Idontwant) > 0 {
-			for _, msg := range rpc.Control.Idontwant {
-				log.Printf("GossipSubRPC: %s IDONTWANT (ids: %q%s)\n",
-					action, msg.MessageIDs, suffix)
-			}
-		} else if len(rpc.Control.Iannounce) > 0 {
-			for _, msg := range rpc.Control.Iannounce {
-				log.Printf("GossipSubRPC: %s IANNOUNCE (topic: %s, id: %s%s)\n",
-					action, *msg.TopicID, *msg.MessageID, suffix)
-			}
-		} else if len(rpc.Control.Ineed) > 0 {
-			for _, msg := range rpc.Control.Ineed {
-				log.Printf("GossipSubRPC: %s INEED (id: %s%s)\n",
-					action, *msg.MessageID, suffix)
-			}
-		}
 	}
-
 }
 
 // RecvRPC .
@@ -130,10 +151,12 @@ func (g gossipTracer) RecvRPC(rpc *pubsub.RPC) {
 
 // SendRPC .
 func (g gossipTracer) SendRPC(rpc *pubsub.RPC, p peer.ID) {
-	g.logRPC(rpc, p.String(), "Sent")
+	suffix := ", to: " + p.String()
+	g.logRPC(rpc, suffix, "Sent")
 }
 
 // DropRPC .
 func (g gossipTracer) DropRPC(rpc *pubsub.RPC, p peer.ID) {
-	g.logRPC(rpc, p.String(), "Dropped")
+	suffix := ", to: " + p.String()
+	g.logRPC(rpc, suffix, "Dropped")
 }
