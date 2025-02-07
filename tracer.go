@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -55,13 +54,19 @@ func (t eventTracer) Trace(evt *pb.TraceEvent) {
 
 	if evt.GetType() == pb.TraceEvent_RECV_RPC {
 		// we only log control messages here
-		from := base58.Encode(evt.GetRecvRPC().GetReceivedFrom())
-		suffix := fmt.Sprintf(", from: %s", from)
+		from, err := peer.IDFromBytes(evt.GetRecvRPC().GetReceivedFrom())
+		if err != nil {
+			t.logRpcEvt("Received", evt.GetRecvRPC().GetMeta().GetControl(), "")
+		}
+		suffix := fmt.Sprintf(", from: %s", from.String())
 		t.logRpcEvt("Received", evt.GetRecvRPC().GetMeta().GetControl(), suffix)
 	} else if evt.GetType() == pb.TraceEvent_SEND_RPC {
 		// we only log control messages here
-		to := base58.Encode(evt.GetSendRPC().GetSendTo())
-		suffix := fmt.Sprintf(", to: %s", to)
+		to, err := peer.IDFromBytes(evt.GetSendRPC().GetSendTo())
+		if err != nil {
+			t.logRpcEvt("Received", evt.GetRecvRPC().GetMeta().GetControl(), "")
+		}
+		suffix := fmt.Sprintf(", to: %s", to.String())
 		t.logRpcEvt("Sent", evt.GetRecvRPC().GetMeta().GetControl(), suffix)
 	}
 
