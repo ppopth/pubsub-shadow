@@ -58,6 +58,7 @@ func pubsubOptions() []pubsub.Option {
 		pubsub.WithValidateQueueSize(600),
 		pubsub.WithGossipSubParams(pubsubGossipParam()),
 		pubsub.WithRawTracer(gossipTracer{}),
+		pubsub.WithEventTracer(eventTracer{}),
 	}
 
 	return psOpts
@@ -164,7 +165,6 @@ func main() {
 
 	//wait sometime until all meshes are fomed
 	time.Sleep(10 * time.Second)
-
 
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {
