@@ -18,9 +18,9 @@ var _ = pubsub.RawTracer(gossipTracer{})
 type gossipTracer struct{}
 type eventTracer struct{}
 
-func (t eventTracer) logRpcEvt(action string, controlData *pb.TraceEvent_ControlMeta, suffix string) {
+func (t eventTracer) logRpcEvt(action string, data *pb.TraceEvent_RPCMeta, suffix string) {
+	controlData := data.GetControl()
 
-	// we only log control messages here
 	if len(controlData.GetIhave()) > 0 {
 		for _, msg := range controlData.GetIhave() {
 			log.Printf("GossipSubRPC: %s IHAVE (topic: %s, ids: %q%s)\n",
@@ -52,6 +52,10 @@ func (t eventTracer) logRpcEvt(action string, controlData *pb.TraceEvent_Control
 		}
 	}
 
+	for _, msg := range data.GetMessages() {
+		log.Printf("GossipSubRPC: %s Publish (topic: %s, id: %s%s)\n",
+			action, msg.GetTopic(), msg.GetMessageID(), suffix)
+	}
 }
 
 func (t eventTracer) Trace(evt *pb.TraceEvent) {
@@ -60,18 +64,18 @@ func (t eventTracer) Trace(evt *pb.TraceEvent) {
 		// we only log control messages here
 		from, err := peer.IDFromBytes(evt.GetRecvRPC().GetReceivedFrom())
 		if err != nil {
-			t.logRpcEvt("Received", evt.GetRecvRPC().GetMeta().GetControl(), "")
+			t.logRpcEvt("Received", evt.GetRecvRPC().GetMeta(), "")
 		}
 		suffix := fmt.Sprintf(", from: %s", from.String())
-		t.logRpcEvt("Received", evt.GetRecvRPC().GetMeta().GetControl(), suffix)
+		t.logRpcEvt("Received", evt.GetRecvRPC().GetMeta(), suffix)
 	} else if evt.GetType() == pb.TraceEvent_SEND_RPC {
 		// we only log control messages here
 		to, err := peer.IDFromBytes(evt.GetSendRPC().GetSendTo())
 		if err != nil {
-			t.logRpcEvt("Sent", evt.GetSendRPC().GetMeta().GetControl(), "")
+			t.logRpcEvt("Sent", evt.GetSendRPC().GetMeta(), "")
 		}
 		suffix := fmt.Sprintf(", to: %s", to.String())
-		t.logRpcEvt("Sent", evt.GetSendRPC().GetMeta().GetControl(), suffix)
+		t.logRpcEvt("Sent", evt.GetSendRPC().GetMeta(), suffix)
 	}
 
 }
@@ -153,13 +157,10 @@ func (g gossipTracer) logRPC(rpc *pubsub.RPC, suffix string, action string) {
 
 // RecvRPC .
 func (g gossipTracer) RecvRPC(rpc *pubsub.RPC) {
-	g.logRPC(rpc, "", "Received")
 }
 
 // SendRPC .
 func (g gossipTracer) SendRPC(rpc *pubsub.RPC, p peer.ID) {
-	suffix := ", to: " + p.String()
-	g.logRPC(rpc, suffix, "Sent")
 }
 
 // DropRPC .
