@@ -164,8 +164,8 @@ func main() {
 		panic(err)
 	}
 
-	//wait sometime until all meshes are fomed
-	time.Sleep(10 * time.Second)
+	// wait sometime until all meshes are fomed
+	time.Sleep(1 * time.Minute)
 
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {
