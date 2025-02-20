@@ -107,6 +107,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	log.Printf("PeerId: %s\n", h.ID())
 	log.Printf("Listening on: %v\n", h.Addrs())
 
 	// wait 1 second for other nodes to bootstrap
