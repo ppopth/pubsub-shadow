@@ -26,22 +26,26 @@ func (t eventTracer) logRpcEvt(action string, controlData *pb.TraceEvent_Control
 			log.Printf("GossipSubRPC: %s IHAVE (topic: %s, ids: %q%s)\n",
 				action, msg.GetTopic(), msg.GetMessageIDs(), suffix)
 		}
-	} else if len(controlData.GetIwant()) > 0 {
+	}
+	if len(controlData.GetIwant()) > 0 {
 		for _, msg := range controlData.GetIwant() {
 			log.Printf("GossipSubRPC: %s IWANT (ids: %q%s)\n",
 				action, msg.GetMessageIDs(), suffix)
 		}
-	} else if len(controlData.GetIdontwant()) > 0 {
+	}
+	if len(controlData.GetIdontwant()) > 0 {
 		for _, msg := range controlData.GetIdontwant() {
 			log.Printf("GossipSubRPC: %s IDONTWANT (ids: %q%s)\n",
 				action, msg.GetMessageIDs(), suffix)
 		}
-	} else if len(controlData.GetIannounce()) > 0 {
+	}
+	if len(controlData.GetIannounce()) > 0 {
 		for _, msg := range controlData.GetIannounce() {
 			log.Printf("GossipSubRPC: %s IANNOUNCE (topic: %s, id: %s%s)\n",
 				action, msg.GetTopic(), msg.GetMessageID(), suffix)
 		}
-	} else if len(controlData.GetIneed()) > 0 {
+	}
+	if len(controlData.GetIneed()) > 0 {
 		for _, msg := range controlData.GetIneed() {
 			log.Printf("GossipSubRPC: %s INEED (id: %s%s)\n",
 				action, msg.GetMessageID(), suffix)
@@ -64,7 +68,7 @@ func (t eventTracer) Trace(evt *pb.TraceEvent) {
 		// we only log control messages here
 		to, err := peer.IDFromBytes(evt.GetSendRPC().GetSendTo())
 		if err != nil {
-			t.logRpcEvt("Received", evt.GetSendRPC().GetMeta().GetControl(), "")
+			t.logRpcEvt("Sent", evt.GetSendRPC().GetMeta().GetControl(), "")
 		}
 		suffix := fmt.Sprintf(", to: %s", to.String())
 		t.logRpcEvt("Sent", evt.GetSendRPC().GetMeta().GetControl(), suffix)
@@ -141,11 +145,9 @@ func (g gossipTracer) ThrottlePeer(p peer.ID) {
 // RecvRPC .
 func (g gossipTracer) logRPC(rpc *pubsub.RPC, suffix string, action string) {
 
-	if rpc.Control == nil {
-		for _, msg := range rpc.Publish {
-			log.Printf("GossipSubRPC: %s Publish (topic: %s, id: %s%s)\n",
-				action, *msg.Topic, CalcID(msg.Data), suffix)
-		}
+	for _, msg := range rpc.Publish {
+		log.Printf("GossipSubRPC: %s Publish (topic: %s, id: %s%s)\n",
+			action, *msg.Topic, CalcID(msg.Data), suffix)
 	}
 }
 
