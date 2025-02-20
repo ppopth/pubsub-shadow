@@ -64,10 +64,10 @@ func (t eventTracer) Trace(evt *pb.TraceEvent) {
 		// we only log control messages here
 		to, err := peer.IDFromBytes(evt.GetSendRPC().GetSendTo())
 		if err != nil {
-			t.logRpcEvt("Received", evt.GetRecvRPC().GetMeta().GetControl(), "")
+			t.logRpcEvt("Received", evt.GetSendRPC().GetMeta().GetControl(), "")
 		}
 		suffix := fmt.Sprintf(", to: %s", to.String())
-		t.logRpcEvt("Sent", evt.GetRecvRPC().GetMeta().GetControl(), suffix)
+		t.logRpcEvt("Sent", evt.GetSendRPC().GetMeta().GetControl(), suffix)
 	}
 
 }
