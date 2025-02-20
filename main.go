@@ -110,8 +110,23 @@ func main() {
 	log.Printf("PeerId: %s\n", h.ID())
 	log.Printf("Listening on: %v\n", h.Addrs())
 
-	// wait 1 second for other nodes to bootstrap
-	time.Sleep(1 * time.Second)
+	// create a gossipsub node and subscribe to the topic
+	psOpts := pubsubOptions()
+	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
+	if err != nil {
+		panic(err)
+	}
+	topic, err := ps.Join(topicName)
+	if err != nil {
+		panic(err)
+	}
+	sub, err := topic.Subscribe()
+	if err != nil {
+		panic(err)
+	}
+
+	// wait 30 seconds for other nodes to bootstrap
+	time.Sleep(30 * time.Second)
 
 	// discover peers
 	peers := make(map[int]struct{})
@@ -147,21 +162,6 @@ func main() {
 		}
 		peers[id] = struct{}{}
 		log.Printf("Connected to node%d: %s\n", id, addr)
-	}
-
-	// create a gossipsub node and subscribe to the topic
-	psOpts := pubsubOptions()
-	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
-	if err != nil {
-		panic(err)
-	}
-	topic, err := ps.Join(topicName)
-	if err != nil {
-		panic(err)
-	}
-	sub, err := topic.Subscribe()
-	if err != nil {
-		panic(err)
 	}
 
 	// wait sometime until all meshes are fomed
