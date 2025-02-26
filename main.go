@@ -164,8 +164,8 @@ func main() {
 		log.Printf("Connected to node%d: %s\n", id, addr)
 	}
 
-	// wait sometime until all meshes are fomed
-	time.Sleep(1 * time.Minute)
+	// wait until 00:02 for the meshes to be formed and so that the publish will be exactly at 00:02
+	time.Sleep(time.Until(time.Date(2000, time.January, 1, 0, 2, 0, 0, time.UTC)))
 
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {

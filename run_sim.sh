@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 go build -linkshared
 
 for kb in 128 256 512 1024 2048 4096 8192; do
@@ -8,7 +10,7 @@ for kb in 128 256 512 1024 2048 4096 8192; do
       filename=shadow-$kb-$announce-1
       python3 network_graph.py 5000 35 $result 1 8 $announce
 
-      shadow -d $filename.data shadow.yaml
+      shadow --progress true -d $filename.data shadow.yaml
 
       tar -czf $filename.tar.gz $filename.data
 
@@ -23,7 +25,7 @@ for announce in 0 7 8; do
     filename=shadow-128-$announce-$num_msgs
     python3 network_graph.py 5000 35 $result $num_msgs 8 $announce
 
-    shadow -d $filename.data shadow.yaml
+    shadow --progress true -d $filename.data shadow.yaml
 
     tar -czf $filename.tar.gz $filename.data
 
