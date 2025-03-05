@@ -13,10 +13,7 @@ import (
 )
 
 type gossipTracer struct{}
-type eventTracer struct {
-	shouldFail bool
-	faultCh    chan int
-}
+type eventTracer struct{}
 
 func (t eventTracer) logRpcEvt(action string, data *pb.TraceEvent_RPCMeta, suffix string) {
 	controlData := data.GetControl()
@@ -76,13 +73,6 @@ func (t eventTracer) Trace(evt *pb.TraceEvent) {
 		}
 		suffix := fmt.Sprintf(", to: %s", to.String())
 		t.logRpcEvt("Sent", evt.GetSendRPC().GetMeta(), suffix)
-
-		// kill the node after sending an innounce
-		if len(evt.GetSendRPC().GetMeta().GetControl().GetIannounce()) > 0 {
-			if t.shouldFail {
-				t.faultCh <- 0
-			}
-		}
 	}
 
 }
