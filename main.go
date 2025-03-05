@@ -117,7 +117,7 @@ func main() {
 
 	// create a gossipsub node and subscribe to the topic
 	dice := rand.Intn(100)
-	psOpts := pubsubOptions(dice <= *faultFlag, shutdown)
+	psOpts := pubsubOptions(dice <= *faultFlag && nodeId != 0, shutdown)
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
