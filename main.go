@@ -26,6 +26,7 @@ const (
 var (
 	countFlag     = flag.Int("count", 5000, "the number of nodes in the network")
 	targetFlag    = flag.Int("target", 70, "the target number of connected peers")
+	faultFlag     = flag.Int("fault", 10, "percentage of nodes that should fail mid simulation")
 	DFlag         = flag.Int("D", 8, "mesh degree for gossipsub topics")
 	DannounceFlag = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
 	msgSizeFlag   = flag.Int("size", 32, "message size in bytes")
@@ -46,7 +47,7 @@ func pubsubGossipParam() pubsub.GossipSubParams {
 }
 
 // pubsubOptions creates a list of options to configure our router with.
-func pubsubOptions() []pubsub.Option {
+func pubsubOptions(ignoreIneed bool) []pubsub.Option {
 	psOpts := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
@@ -59,6 +60,7 @@ func pubsubOptions() []pubsub.Option {
 		pubsub.WithGossipSubParams(pubsubGossipParam()),
 		pubsub.WithRawTracer(gossipTracer{}),
 		pubsub.WithEventTracer(eventTracer{}),
+		pubsub.WithIgnoreIneed(ignoreIneed),
 	}
 
 	return psOpts
@@ -111,7 +113,8 @@ func main() {
 	log.Printf("Listening on: %v\n", h.Addrs())
 
 	// create a gossipsub node and subscribe to the topic
-	psOpts := pubsubOptions()
+	dice := rand.Intn(99) + 1
+	psOpts := pubsubOptions(dice <= *faultFlag && nodeId != 0)
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
