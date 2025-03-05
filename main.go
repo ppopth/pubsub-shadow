@@ -115,7 +115,7 @@ func main() {
 	log.Printf("Listening on: %v\n", h.Addrs())
 
 	// create a gossipsub node and subscribe to the topic
-	dice := rand.Intn(100)
+	dice := rand.Intn(99) + 1
 	psOpts := pubsubOptions(dice <= *faultFlag && nodeId != 0)
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
