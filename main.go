@@ -49,7 +49,7 @@ func pubsubGossipParam() pubsub.GossipSubParams {
 }
 
 // pubsubOptions creates a list of options to configure our router with.
-func pubsubOptions(shouldFail bool, faultCh chan int) []pubsub.Option {
+func pubsubOptions(ignoreIneed bool) []pubsub.Option {
 	psOpts := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
@@ -61,7 +61,8 @@ func pubsubOptions(shouldFail bool, faultCh chan int) []pubsub.Option {
 		pubsub.WithValidateQueueSize(600),
 		pubsub.WithGossipSubParams(pubsubGossipParam()),
 		pubsub.WithRawTracer(gossipTracer{}),
-		pubsub.WithEventTracer(eventTracer{shouldFail, faultCh}),
+		pubsub.WithEventTracer(eventTracer{}),
+		pubsub.WithIgnoreIneed(ignoreIneed),
 	}
 
 	return psOpts
@@ -84,10 +85,8 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	shutdown := make(chan int, 1)
-
 	flag.Parse()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -117,7 +116,7 @@ func main() {
 
 	// create a gossipsub node and subscribe to the topic
 	dice := rand.Intn(100)
-	psOpts := pubsubOptions(dice <= *faultFlag && nodeId != 0, shutdown)
+	psOpts := pubsubOptions(dice <= *faultFlag && nodeId != 0)
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
@@ -186,24 +185,13 @@ func main() {
 		}
 	}
 
-	go func() {
-		for {
-			// block and wait to receive the next message
-			m, err := sub.Next(ctx)
-			if err != nil {
-				panic(err)
-			}
-
-			log.Printf("Received: (topic: %s, id: %s)\n", *m.Topic, CalcID(m.Message.Data))
+	for {
+		// block and wait to receive the next message
+		m, err := sub.Next(ctx)
+		if err != nil {
+			panic(err)
 		}
-	}()
-
-	select {
-	case <-shutdown:
-		log.Printf("Shutdown")
-		cancel()
-		h.Close()
-		// wait for shadow to terminate the node
-		time.Sleep(10 * time.Minute)
+		log.Printf("Received: (topic: %s, id: %s)\n", *m.Topic, CalcID(m.Message.Data))
 	}
+
 }
