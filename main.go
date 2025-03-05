@@ -26,6 +26,7 @@ const (
 var (
 	countFlag     = flag.Int("count", 5000, "the number of nodes in the network")
 	targetFlag    = flag.Int("target", 70, "the target number of connected peers")
+	faultFlag     = flag.Int("fault", 10, "percentage of nodes that should fail mid simulation")
 	DFlag         = flag.Int("D", 8, "mesh degree for gossipsub topics")
 	DannounceFlag = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
 	intervalFlag  = flag.Int("interval", 700, "heartbeat interval in milliseconds")
@@ -48,7 +49,7 @@ func pubsubGossipParam() pubsub.GossipSubParams {
 }
 
 // pubsubOptions creates a list of options to configure our router with.
-func pubsubOptions() []pubsub.Option {
+func pubsubOptions(shouldFail bool, faultCh chan int) []pubsub.Option {
 	psOpts := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
@@ -60,7 +61,7 @@ func pubsubOptions() []pubsub.Option {
 		pubsub.WithValidateQueueSize(600),
 		pubsub.WithGossipSubParams(pubsubGossipParam()),
 		pubsub.WithRawTracer(gossipTracer{}),
-		pubsub.WithEventTracer(eventTracer{}),
+		pubsub.WithEventTracer(eventTracer{shouldFail, faultCh}),
 	}
 
 	return psOpts
@@ -83,8 +84,10 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
+	shutdown := make(chan int, 1)
+
 	flag.Parse()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -113,7 +116,8 @@ func main() {
 	log.Printf("Listening on: %v\n", h.Addrs())
 
 	// create a gossipsub node and subscribe to the topic
-	psOpts := pubsubOptions()
+	dice := rand.Intn(100)
+	psOpts := pubsubOptions(dice <= *faultFlag, shutdown)
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
@@ -182,13 +186,24 @@ func main() {
 		}
 	}
 
-	for {
-		// block and wait to receive the next message
-		m, err := sub.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-		log.Printf("Received: (topic: %s, id: %s)\n", *m.Topic, CalcID(m.Message.Data))
-	}
+	go func() {
+		for {
+			// block and wait to receive the next message
+			m, err := sub.Next(ctx)
+			if err != nil {
+				panic(err)
+			}
 
+			log.Printf("Received: (topic: %s, id: %s)\n", *m.Topic, CalcID(m.Message.Data))
+		}
+	}()
+
+	select {
+	case <-shutdown:
+		log.Printf("Shutdown")
+		cancel()
+		h.Close()
+		// wait for shadow to terminate the node
+		time.Sleep(10 * time.Minute)
+	}
 }
