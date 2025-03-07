@@ -1,27 +1,19 @@
 # pubsub-shadow
 
-## Build
+## Requirement
 
-Build the implementation to be simulated.
+1. A machine with at least 300GB of RAM
+2. Have [Shadow](https://shadow.github.io/) installed
+
+## Run the simulations
+
 ```bash
-go build -linkshared
+bash run_sum.sh
 ```
 
-Given the number of nodes, generate a Shadow config file and a network graph, named as `shadow.yaml` and `graph.gml` respectively.
-```bash
-# python3 network_graph.py [NODE_COUNT] [NUM_CONNECTIONS] [MSG_SIZE_IN_BYTES] [NUM_MSGS_PUBLISHED] [MESH_DEGREE] {ANNOUNCE_DEGREE]
-python network_graph.py 100 10 32 1 8 7
-```
-The number of nodes shown is 100. Change it correspondingly.
+## Parse the result and plot the graphs
 
-## Run the simulation
-
-Remove the old simulation result first.
 ```bash
-rm -rf shadow.data
-```
-
-Run the simulation.
-```bash
-shadow --progress true shadow.yaml
+for file in shadow-*.tar.gz; do tar xvf $file; done # extract the simulation results
+python3 analyse_logs.py 1000
 ```
