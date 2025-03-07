@@ -28,6 +28,7 @@ var (
 	targetFlag    = flag.Int("target", 70, "the target number of connected peers")
 	DFlag         = flag.Int("D", 8, "mesh degree for gossipsub topics")
 	DannounceFlag = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
+	intervalFlag  = flag.Int("interval", 700, "heartbeat interval in milliseconds")
 	msgSizeFlag   = flag.Int("size", 32, "message size in bytes")
 	numMsgsFlag   = flag.Int("n", 1, "number of messages published at the same time")
 )
@@ -35,10 +36,11 @@ var (
 // creates a custom gossipsub parameter set.
 func pubsubGossipParam() pubsub.GossipSubParams {
 	gParams := pubsub.DefaultGossipSubParams()
-	gParams.Dlo = 6
+	gParams.Dlo = *DFlag - 2
 	gParams.D = *DFlag
-	gParams.Dhi = 12
-	gParams.HeartbeatInterval = 700 * time.Millisecond
+	gParams.Dhi = *DFlag + 4
+	gParams.Timeout = 1000 * time.Millisecond
+	gParams.HeartbeatInterval = time.Duration(*intervalFlag) * time.Millisecond
 	gParams.HistoryLength = 6
 	gParams.HistoryGossip = 3
 	gParams.Dannounce = *DannounceFlag
