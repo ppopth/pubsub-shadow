@@ -124,6 +124,7 @@ num_msgs = int(sys.argv[4])
 d_mesh = int(sys.argv[5])
 d_announce = int(sys.argv[6])
 interval = int(sys.argv[7])
+num_malicious = int(sys.argv[8])
 
 ids = {}
 for node_type in node_types:
@@ -152,15 +153,17 @@ config["network"] = {"graph": {"type": "gml", "file": {"path": "graph.gml"}}}
 config["hosts"] = {}
 for i in range(node_count):
     location = random.choices(locations, map(lambda lc: lc.weight, locations))[0]
+    is_malicious = "false"
     if i == 0:
         node_type = supernode
     else:
+        is_malicious = "true" if random.randint(1, 100) <= num_malicious else "false" 
         node_type = random.choices(node_types, map(lambda nt: nt.weight, node_types))[0]
 
     config["hosts"][f"node{i}"] = {
         "network_node_id": ids[f"{location.name}-{node_type.name}"],
         "processes": [{
-            "args": f"-count {node_count} -target {target_conn} -n {num_msgs} -size {msg_size} -D {d_mesh} -Dannounce {d_announce} -interval {interval}",
+            "args": f"-count {node_count} -target {target_conn} -n {num_msgs} -size {msg_size} -D {d_mesh} -Dannounce {d_announce} -interval {interval} -malicious {is_malicious}",
             "expected_final_state": "running",
             "path": "./pubsub-shadow",
         }],

@@ -12,9 +12,6 @@ import (
 	"log"
 )
 
-var _ = pubsub.EventTracer(eventTracer{})
-var _ = pubsub.RawTracer(gossipTracer{})
-
 type gossipTracer struct{}
 type eventTracer struct{}
 

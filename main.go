@@ -24,13 +24,14 @@ const (
 )
 
 var (
-	countFlag     = flag.Int("count", 5000, "the number of nodes in the network")
-	targetFlag    = flag.Int("target", 70, "the target number of connected peers")
-	DFlag         = flag.Int("D", 8, "mesh degree for gossipsub topics")
-	DannounceFlag = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
-	intervalFlag  = flag.Int("interval", 700, "heartbeat interval in milliseconds")
-	msgSizeFlag   = flag.Int("size", 32, "message size in bytes")
-	numMsgsFlag   = flag.Int("n", 1, "number of messages published at the same time")
+	countFlag       = flag.Int("count", 5000, "the number of nodes in the network")
+	targetFlag      = flag.Int("target", 70, "the target number of connected peers")
+	isMaliciousFlag = flag.Bool("malicious", false, "is the node malicious?")
+	DFlag           = flag.Int("D", 8, "mesh degree for gossipsub topics")
+	DannounceFlag   = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
+	intervalFlag    = flag.Int("interval", 700, "heartbeat interval in milliseconds")
+	msgSizeFlag     = flag.Int("size", 32, "message size in bytes")
+	numMsgsFlag     = flag.Int("n", 1, "number of messages published at the same time")
 )
 
 // creates a custom gossipsub parameter set.
@@ -48,7 +49,7 @@ func pubsubGossipParam() pubsub.GossipSubParams {
 }
 
 // pubsubOptions creates a list of options to configure our router with.
-func pubsubOptions() []pubsub.Option {
+func pubsubOptions(ignoreIneed bool) []pubsub.Option {
 	psOpts := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
@@ -61,6 +62,7 @@ func pubsubOptions() []pubsub.Option {
 		pubsub.WithGossipSubParams(pubsubGossipParam()),
 		pubsub.WithRawTracer(gossipTracer{}),
 		pubsub.WithEventTracer(eventTracer{}),
+		pubsub.WithIgnoreIneed(ignoreIneed),
 	}
 
 	return psOpts
@@ -113,7 +115,7 @@ func main() {
 	log.Printf("Listening on: %v\n", h.Addrs())
 
 	// create a gossipsub node and subscribe to the topic
-	psOpts := pubsubOptions()
+	psOpts := pubsubOptions(*isMaliciousFlag)
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)

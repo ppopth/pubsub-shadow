@@ -316,12 +316,13 @@ if __name__ == "__main__":
     announce_list = [0, 7, 8]
     size_list = [128, 256, 512, 1024, 2048, 4096, 8192]
     num_list = [1, 2, 4, 8, 16, 32, 64]
+    malicious_list = [5, 10, 20, 30, 50]
 
     files = glob.glob("*.tln.json")
     if len(files) > 0:
         print("Found saved timelines")
         for i, file in enumerate(files):
-            print(f"{i+1}. {file}")
+            print(f"{i + 1}. {file}")
         use_saved = input(f"Enter which timeline file to use ({1}-{len(files)}/n):")
         idx = ord(use_saved) - 49
         if idx >= 0 and idx < len(files):
@@ -350,6 +351,15 @@ if __name__ == "__main__":
                     f"shadow-{timeline_key}.data", count
                 )
 
+        # read all simulations
+        for announce in announce_list:
+            for malicious in malicious_list:
+                timeline_key = f"malicious-{malicious}-{announce}"
+                print(timeline_key)
+                timelines[timeline_key] = extract_node_timelines(
+                    f"shadow-{timeline_key}.data", count
+                )
+
         with open("analysed_timeline.tln.json", "w") as f:
             json.dump(timelines, f)
 
@@ -364,8 +374,8 @@ if __name__ == "__main__":
             timeline_key = f"{msg_size}-{announce}-1"
             arr_times, rx_count, dups = analyse_timelines(timelines[timeline_key], 1)
             plot_cdf(arr_times["f2l"], f"{msg_size}KB message")
-            print(f"\t\tAverage num. of dups: {sum(dups)/count}")
-            print(f"\t\tAverage num. lost: {sum(rx_count)/count}")
+            print(f"\t\tAverage num. of dups: {sum(dups) / count}")
+            print(f"\t\tAverage num. lost: {sum(rx_count) / count}")
 
         plt.xlabel("Message Arrival Time")
         plt.ylabel("Cumulative Proportion of Nodes")
@@ -385,10 +395,12 @@ if __name__ == "__main__":
             print(f"\tAnalysis for {num_msgs} 128KB msgs")
             # only for one message published
             timeline_key = f"{128}-{announce}-{num_msgs}"
-            arr_times, rx_count, dups = analyse_timelines(timelines[timeline_key], num_msgs)
+            arr_times, rx_count, dups = analyse_timelines(
+                timelines[timeline_key], num_msgs
+            )
             plot_cdf(arr_times["f2l"], f"{num_msgs} num of msgs")
-            print(f"\t\tAverage num. of dups: {sum(dups)/count}")
-            print(f"\t\tAverage num. lost: {sum(rx_count)/count}")
+            print(f"\t\tAverage num. of dups: {sum(dups) / count}")
+            print(f"\t\tAverage num. lost: {sum(rx_count) / count}")
 
         plt.xlabel("Message Arrival Time")
         plt.ylabel("Cumulative Proportion of Nodes")
@@ -397,4 +409,29 @@ if __name__ == "__main__":
         plt.grid(True)
         plt.legend()
         plt.savefig(f"./plots/cdf_num_{announce}.png")
+        print("plot saved")
+
+    # 3. plot CDF of arrival times vs. nodes for 16 messages(of same size) published at the same time in presence of malicious nodes
+    # three different plots for different Dannounce. Each plot contains 5 CDFs for different percentages of malicious nodes
+    for announce in announce_list:
+        print(f"\nAnnouncement Degree = {announce}\n")
+        plt.figure(figsize=(8, 6))
+        for malicious in malicious_list:
+            print(f"\tAnalysis for 16x128KB msgs with {malicious}% malicious nodes")
+            # only for one message published
+            timeline_key = f"malicious-{malicious}-{announce}"
+            arr_times, rx_count, dups = analyse_timelines(
+                timelines[timeline_key], num_msgs
+            )
+            plot_cdf(arr_times["f2l"], f"{num_msgs} num of msgs")
+            print(f"\t\tAverage num. of dups: {sum(dups) / count}")
+            print(f"\t\tAverage num. lost: {sum(rx_count) / count}")
+
+        plt.xlabel("Message Arrival Time")
+        plt.ylabel("Cumulative Proportion of Nodes")
+        plt.xlim(0.0, max_arr_time_num)
+        plt.title(f"Message Arrival Times for D=8 & D_announce={announce}")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(f"./plots/cdf_malicious_{announce}.png")
         print("plot saved")
