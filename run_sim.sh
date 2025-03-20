@@ -49,7 +49,7 @@ for announce in 0 $(($D - 1)) $D; do
   done
 done
 
-for announce in 0 7 8; do
+for announce in 0 $(($D - 1)) $D; do
   for malicious in 5 10 20 30 50; do
     result=$((128 * 1024))
     filename=shadow-fault-$fault
