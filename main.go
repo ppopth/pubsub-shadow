@@ -24,14 +24,14 @@ const (
 )
 
 var (
-	countFlag        = flag.Int("count", 5000, "the number of nodes in the network")
-	targetFlag       = flag.Int("target", 70, "the target number of connected peers")
-	numMaliciousFlag = flag.Int("malicious", 10, "percentage of nodes that are malicious")
-	DFlag            = flag.Int("D", 8, "mesh degree for gossipsub topics")
-	DannounceFlag    = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
-	intervalFlag     = flag.Int("interval", 700, "heartbeat interval in milliseconds")
-	msgSizeFlag      = flag.Int("size", 32, "message size in bytes")
-	numMsgsFlag      = flag.Int("n", 1, "number of messages published at the same time")
+	countFlag       = flag.Int("count", 5000, "the number of nodes in the network")
+	targetFlag      = flag.Int("target", 70, "the target number of connected peers")
+	isMaliciousFlag = flag.Bool("malicious", false, "is the node malicious?")
+	DFlag           = flag.Int("D", 8, "mesh degree for gossipsub topics")
+	DannounceFlag   = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
+	intervalFlag    = flag.Int("interval", 700, "heartbeat interval in milliseconds")
+	msgSizeFlag     = flag.Int("size", 32, "message size in bytes")
+	numMsgsFlag     = flag.Int("n", 1, "number of messages published at the same time")
 )
 
 // creates a custom gossipsub parameter set.
@@ -115,9 +115,7 @@ func main() {
 	log.Printf("Listening on: %v\n", h.Addrs())
 
 	// create a gossipsub node and subscribe to the topic
-	// dice will never be 0, so numMaliciousFlag = 0 will yield a 100% honest network
-	dice := rand.Intn(99) + 1
-	psOpts := pubsubOptions(dice <= *numMaliciousFlag && nodeId != 0)
+	psOpts := pubsubOptions(*isMaliciousFlag)
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
