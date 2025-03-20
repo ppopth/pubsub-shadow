@@ -130,7 +130,7 @@ num_msgs = int(sys.argv[4])
 d_mesh = int(sys.argv[5])
 d_announce = int(sys.argv[6])
 interval = int(sys.argv[7])
-fault = int(sys.argv[8])
+malicious = int(sys.argv[8])
 
 ids = {}
 for node_type in node_types:
@@ -175,7 +175,7 @@ for i in range(node_count):
         "network_node_id": ids[f"{location.name}-{node_type.name}"],
         "processes": [
             {
-                "args": f"-count {node_count} -target {target_conn} -n {num_msgs} -size {msg_size} -D {d_mesh} -Dannounce {d_announce} -interval {interval} -fault {fault}",
+                "args": f"-count {node_count} -target {target_conn} -n {num_msgs} -size {msg_size} -D {d_mesh} -Dannounce {d_announce} -interval {interval} -malicious {malicious}",
                 "expected_final_state": "running",
                 "path": "./pubsub-shadow",
             }

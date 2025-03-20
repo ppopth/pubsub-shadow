@@ -50,7 +50,7 @@ for announce in 0 $(($D - 1)) $D; do
 done
 
 for announce in 0 7 8; do
-  for fault in 5 10 20 30 50; do
+  for malicious in 5 10 20 30 50; do
     result=$((128 * 1024))
     filename=shadow-fault-$fault
 
@@ -59,7 +59,7 @@ for announce in 0 7 8; do
     else
        interval=1500
     fi
-    python3 network_graph.py 5000 35 $result 16 8 $announce $interval $fault
+    python3 network_graph.py 1000 35 $result 16 8 $announce $interval $malicious
 
     shadow --progress true -d $filename.data shadow.yaml
 
