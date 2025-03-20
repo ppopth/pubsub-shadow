@@ -153,40 +153,31 @@ def read_node_logs(lines):
                     msg_id = ext[1]
                     topic = ext[0]
                     if "Received" in log_content:
-                        add_timestamp(msg_id, "rpcs_received",
-                                      (timestamp, topic))
+                        add_timestamp(msg_id, "rpcs_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         add_timestamp(msg_id, "rpcs_sent", (timestamp, topic))
                 elif "IHAVE" in log_content:
                     topic = ext[0]
                     if "Received" in log_content:
                         for msg_id in ext[1]:
-                            add_timestamp(
-                                msg_id, "ihaves_received", (timestamp, topic))
+                            add_timestamp(msg_id, "ihaves_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         for msg_id in ext[1]:
-                            add_timestamp(msg_id, "ihaves_sent",
-                                          (timestamp, topic))
+                            add_timestamp(msg_id, "ihaves_sent", (timestamp, topic))
                 elif "IWANT" in log_content:
                     if "Received" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(
-                                msg_id, "iwants_received", (timestamp, topic))
+                            add_timestamp(msg_id, "iwants_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(msg_id, "iwants_sent",
-                                          (timestamp, topic))
+                            add_timestamp(msg_id, "iwants_sent", (timestamp, topic))
                 elif "IDONTWANT" in log_content:
                     if "Received" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(
-                                msg_id, "idontwants_received", (
-                                    timestamp, topic)
-                            )
+                            add_timestamp(msg_id, "idontwants_received", (timestamp, topic))
                     elif "Sent" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(
-                                msg_id, "idontwants_sent", (timestamp, topic))
+                            add_timestamp(msg_id, "idontwants_sent", (timestamp, topic))
                 elif "INEED" in log_content:
                     msg_id = ext[0]
                     if "Received" in log_content:
@@ -197,11 +188,9 @@ def read_node_logs(lines):
                     msg_id = ext[1]
                     topic = ext[0]
                     if "Received" in log_content:
-                        add_timestamp(
-                            msg_id, "iannounces_received", (timestamp, topic))
+                        add_timestamp(msg_id, "iannounces_received", (timestamp, topic))
                     elif "Sent" in log_content:
-                        add_timestamp(msg_id, "iannounces_sent",
-                                      (timestamp, topic))
+                        add_timestamp(msg_id, "iannounces_sent", (timestamp, topic))
         else:
             raise Exception("Couldn't match pattern for timestamps")
 
