@@ -142,7 +142,7 @@ def read_node_logs(lines):
             elif "GossipSub: Peer Added" in log_content:
                 ext = extract_data(log_content)
                 peer_id = ext[0]
-                add_timestamp(None, "added", (timestamp, peer_id))
+                add_timestamp(None, "added", (timestamp, topic))
             elif "GossipSub: Throttled" in log_content:
                 ext = extract_data(log_content)
                 peer_id = ext[0]
@@ -174,7 +174,9 @@ def read_node_logs(lines):
                 elif "IDONTWANT" in log_content:
                     if "Received" in log_content:
                         for msg_id in ext[0]:
-                            add_timestamp(msg_id, "idontwants_received", (timestamp, topic))
+                            add_timestamp(
+                                msg_id, "idontwants_received", (timestamp, topic)
+                            )
                     elif "Sent" in log_content:
                         for msg_id in ext[0]:
                             add_timestamp(msg_id, "idontwants_sent", (timestamp, topic))
@@ -216,10 +218,6 @@ def analyse_timelines(extracted_data, shouldhave):
     arrival_times = {}
     rx_msgs = []
     dup_msgs = []
-    added = []
-    added.append(len(extracted_data["0"]["added"]))
-    grafted = []
-    grafted.append(len(extracted_data["0"]["grafted"]))
 
     # we know node 0 is the publiisher
     timeline = extracted_data["0"]["msgs"]
@@ -249,9 +247,6 @@ def analyse_timelines(extracted_data, shouldhave):
         rx_times = {}
         first_receive = 0.0
         last_receive = 0.0
-
-        added.append(len(extracted_data[id]["added"]))
-        grafted.append(len(extracted_data[id]["grafted"]))
 
         for msg_id in timeline:
             if len(timeline[msg_id]["delivered"]) > 0:
@@ -296,7 +291,7 @@ def analyse_timelines(extracted_data, shouldhave):
         arrival_times["f2l"].append((id, last_receive - first_publish))
         arrival_times["l2f"].append((id, first_receive - last_publish))
 
-    return arrival_times, rx_msgs, dup_msgs, added, grafted
+    return arrival_times, rx_msgs, dup_msgs
 
 
 def plot_cdf(data, label):
@@ -319,16 +314,15 @@ if __name__ == "__main__":
     max_arr_time_num = 20.0
 
     announce_list = [0, 7, 8]
-    size_list = [128, 256, 512, 1024, 2048, 4096]
-    num_list = [1, 2, 4, 8, 16, 32]
+    size_list = [128, 256, 512, 1024, 2048, 4096, 8192]
+    num_list = [1, 2, 4, 8, 16, 32, 64]
 
     files = glob.glob("*.tln.json")
     if len(files) > 0:
         print("Found saved timelines")
         for i, file in enumerate(files):
-            print(f"{i + 1}. {file}")
-        use_saved = input(
-            f"Enter which timeline file to use ({1}-{len(files)}/n):")
+            print(f"{i+1}. {file}")
+        use_saved = input(f"Enter which timeline file to use ({1}-{len(files)}/n):")
         idx = ord(use_saved) - 49
         if idx >= 0 and idx < len(files):
             reparse = False
@@ -368,21 +362,10 @@ if __name__ == "__main__":
             print(f"\tAnalysis for 1 {msg_size}KB msgs")
             # only for one message published
             timeline_key = f"{msg_size}-{announce}-1"
-            arr_times, rx_count, dups, added, grafted = analyse_timelines(
-                timelines[timeline_key], 1
-            )
+            arr_times, rx_count, dups = analyse_timelines(timelines[timeline_key], 1)
             plot_cdf(arr_times["f2l"], f"{msg_size}KB message")
-            print(f"\t\tAverage num. of dups: {sum(dups) / count}")
-            print(f"\t\tAverage num. lost: {sum(rx_count) / count}")
-
-            mean_added = np.mean(np.array(added))
-            mean_grafted = np.mean(np.array(grafted))
-            sd_added = np.std(np.array(added))
-            sd_grafted = np.std(np.array(grafted))
-
-            print(f"\t\tAdded Peers => Mean: {mean_added} SD: {sd_added}")
-            print(f"\t\tGrafted Peers => Mean: {
-                  mean_grafted} SD: {sd_grafted}")
+            print(f"\t\tAverage num. of dups: {sum(dups)/count}")
+            print(f"\t\tAverage num. lost: {sum(rx_count)/count}")
 
         plt.xlabel("Message Arrival Time")
         plt.ylabel("Cumulative Proportion of Nodes")
@@ -402,21 +385,10 @@ if __name__ == "__main__":
             print(f"\tAnalysis for {num_msgs} 128KB msgs")
             # only for one message published
             timeline_key = f"{128}-{announce}-{num_msgs}"
-            arr_times, rx_count, dups, added, grafted = analyse_timelines(
-                timelines[timeline_key], num_msgs
-            )
+            arr_times, rx_count, dups = analyse_timelines(timelines[timeline_key], num_msgs)
             plot_cdf(arr_times["f2l"], f"{num_msgs} num of msgs")
-            print(f"\t\tAverage num. of dups: {sum(dups) / count}")
-            print(f"\t\tAverage num. lost: {sum(rx_count) / count}")
-
-            mean_added = np.mean(np.array(added))
-            mean_grafted = np.mean(np.array(grafted))
-            sd_added = np.std(np.array(added))
-            sd_grafted = np.std(np.array(grafted))
-
-            print(f"\t\tAdded Peers => Mean: {mean_added} SD: {sd_added}")
-            print(f"\t\tGrafted Peers => Mean: {
-                  mean_grafted} SD: {sd_grafted}")
+            print(f"\t\tAverage num. of dups: {sum(dups)/count}")
+            print(f"\t\tAverage num. lost: {sum(rx_count)/count}")
 
         plt.xlabel("Message Arrival Time")
         plt.ylabel("Cumulative Proportion of Nodes")
