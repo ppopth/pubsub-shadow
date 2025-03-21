@@ -421,9 +421,9 @@ if __name__ == "__main__":
             # only for one message published
             timeline_key = f"malicious-{malicious}-{announce}"
             arr_times, rx_count, dups = analyse_timelines(
-                timelines[timeline_key], num_msgs
+                timelines[timeline_key], 16
             )
-            plot_cdf(arr_times["f2l"], f"{num_msgs} num of msgs")
+            plot_cdf(arr_times["f2l"], f"{malicious}% malicious nodes")
             print(f"\t\tAverage num. of dups: {sum(dups) / count}")
             print(f"\t\tAverage num. lost: {sum(rx_count) / count}")
 
