@@ -38,7 +38,7 @@ for announce in 0 $(($D - 1)) $D; do
     else
        interval=1500
     fi
-    python3 network_graph.py 1000 35 $result $num_msgs $D $announce $interval 0
+    python3 network_graph.py 1000 128 $result $num_msgs $D $announce $interval 0
 
     shadow --progress true -d $filename.data shadow.yaml
 
