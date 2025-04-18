@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	topicName = "foobar"
+	topicPrefix       = "foobar"
+	custodyTopicCount = 8
 )
 
 var (
@@ -120,13 +121,42 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	topic, err := ps.Join(topicName)
-	if err != nil {
-		panic(err)
+	var topics []*pubsub.Topic
+	var subs []*pubsub.Subscription
+
+	// Create a slice of all possible topic indices
+	topicIndices := make([]int, *numMsgsFlag)
+	for i := range topicIndices {
+		topicIndices[i] = i
 	}
-	sub, err := topic.Subscribe()
-	if err != nil {
-		panic(err)
+
+	// For non-publisher nodes, shuffle and take first 8
+	if nodeId != 0 {
+		// The publisher (nodeId == 0) subscribes to all topics,
+		// other nodes subscribe to 8 random topics.
+		// Create a deterministic random source based on nodeId
+		r := rand.New(rand.NewSource(int64(nodeId)))
+		r.Shuffle(len(topicIndices), func(i, j int) {
+			topicIndices[i], topicIndices[j] = topicIndices[j], topicIndices[i]
+		})
+		maxTopics := min(custodyTopicCount, *numMsgsFlag)
+		topicIndices = topicIndices[:maxTopics]
+	}
+
+	// Subscribe to selected topics
+	for _, i := range topicIndices {
+		topicName := fmt.Sprintf("%s%d", topicPrefix, i)
+		topic, err := ps.Join(topicName)
+		if err != nil {
+			panic(err)
+		}
+		sub, err := topic.Subscribe()
+		if err != nil {
+			panic(err)
+		}
+		topics = append(topics, topic)
+		subs = append(subs, sub)
+		log.Printf("Subscribed to topic: %s\n", topicName)
 	}
 
 	// wait 30 seconds for other nodes to bootstrap
@@ -176,21 +206,27 @@ func main() {
 		for i := 0; i < *numMsgsFlag; i++ {
 			msg := make([]byte, *msgSizeFlag)
 			rand.Read(msg) // it takes about a 50-100 us to fill the buffer on macpro 2019. Can be considered simulataneous
-			if err := topic.Publish(ctx, msg); err != nil {
+			if err := topics[i].Publish(ctx, msg); err != nil {
 				log.Printf("Failed to publish message by %s\n", h.ID())
 			} else {
-				log.Printf("Published: (topic: %s, id: %s)\n", topicName, CalcID(msg))
+				log.Printf("Published: (topic: %s, id: %s)\n", topics[i].String(), CalcID(msg))
 			}
 		}
 	}
 
+	c := make(chan *pubsub.Message)
+	for _, sub := range subs {
+		go func() {
+			// block and wait to receive the next message of each topic
+			msg, err := sub.Next(ctx)
+			if err != nil {
+				panic(err)
+			}
+			c <- msg
+		}()
+	}
 	for {
-		// block and wait to receive the next message
-		m, err := sub.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
+		m := <-c
 		log.Printf("Received: (topic: %s, id: %s)\n", *m.Topic, CalcID(m.Message.Data))
 	}
-
 }

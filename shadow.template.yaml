@@ -1,3 +1,3 @@
 general:
   model_unblocked_syscall_latency: true
-  stop_time: 5 min
+  stop_time: 3 min
