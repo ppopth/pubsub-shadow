@@ -239,6 +239,10 @@ def analyse_timelines(extracted_data, shouldhave):
             pass
 
     for id in extracted_data:
+        if id == "0":
+            # Skip the publisher node
+            continue
+
         timeline = extracted_data[id]["msgs"]
 
         dups = 0
@@ -247,12 +251,13 @@ def analyse_timelines(extracted_data, shouldhave):
         rx_times = {}
         first_receive = 0.0
         last_receive = 0.0
+        rx_times_list = []
 
         for msg_id in timeline:
             if len(timeline[msg_id]["delivered"]) > 0:
                 # the first time we received a particular msg_id
                 rx_times[msg_id] = sorted(timeline[msg_id]["delivered"])[0]
-
+                rx_times_list.append(rx_times[msg_id])
                 # received time is the time at which the last message (any msg_id) was received
                 if first_receive == 0.0 or rx_times[msg_id] < first_receive:
                     first_receive = rx_times[msg_id]
@@ -275,6 +280,11 @@ def analyse_timelines(extracted_data, shouldhave):
                 (id, rx_times[msg_id] - publishing_times[msg_id])
             )
 
+        if int(id) % 100 == 0:
+            print(
+                f"Node {id} received {received} messages. Dups: {dups}. Should have received {shouldhave} messages"
+            )
+
         rx_msgs.append(shouldhave - received)
         dup_msgs.append(dups)
 
@@ -282,12 +292,26 @@ def analyse_timelines(extracted_data, shouldhave):
             # the node for some reason did not receive any messages
             continue  # TODO: there must be implication of this on the plot. Resolve them
 
+        rx_times_list.sort()
+        if first_receive != rx_times_list[0]:
+            raise Exception("first_receive != rx_times_list[0]")
+        if last_receive != rx_times_list[-1]:
+            raise Exception("last_receive != rx_times_list[-1]")
+
+        mid_receive = 20.0
+        if len(rx_times_list) >= shouldhave // 2:
+            mid_receive = rx_times_list[(shouldhave // 2) - 1]
+
+        if "f2m" not in arrival_times:
+            arrival_times["f2m"] = []
+
         if "f2l" not in arrival_times:
             arrival_times["f2l"] = []
 
         if "l2f" not in arrival_times:
             arrival_times["l2f"] = []
 
+        arrival_times["f2m"].append((id, mid_receive - first_publish))
         arrival_times["f2l"].append((id, last_receive - first_publish))
         arrival_times["l2f"].append((id, first_receive - last_publish))
 
@@ -316,7 +340,8 @@ if __name__ == "__main__":
     announce_list = [0, 7, 8]
     size_list = [128, 256, 512, 1024, 2048, 4096, 8192]
     # num_list = [1, 2, 4, 8, 16, 32, 64]
-    num_list = [64, 128]
+    # num_list = [64, 128]
+    num_list = [128]
     malicious_list = [5, 10, 20, 30, 50]
 
     files = glob.glob("*.tln.json")
@@ -389,28 +414,42 @@ if __name__ == "__main__":
 
     # 2. plot CDF of arrival times vs. nodes for different numbers of messages(of same size)  published at the same time
     # three different plots for different Dannounce. Each plot contains 5 CDFs for different num of msgs
-    for announce in announce_list:
-        print(f"\nAnnouncement Degree = {announce}\n")
+
+    def plot_arrival_times(title, num_msgs, arr_times_key):
+        print(f"\tAnalysis for {num_msgs} 128KB msgs")
         plt.figure(figsize=(8, 6))
-        for num_msgs in num_list:
-            print(f"\tAnalysis for {num_msgs} 128KB msgs")
+        for announce in announce_list:
+            print(f"\nAnnouncement Degree = {announce}\n")
             # only for one message published
             timeline_key = f"{128}-{announce}-{num_msgs}"
+            sampling_req = 8  # Nodes should receive 8 messages
             arr_times, rx_count, dups = analyse_timelines(
-                timelines[timeline_key], num_msgs
+                timelines[timeline_key], sampling_req
             )
-            plot_cdf(arr_times["f2l"], f"{num_msgs} num of msgs")
+            plot_cdf(arr_times[arr_times_key], f"D_announce={announce}")
             print(f"\t\tAverage num. of dups: {sum(dups) / count}")
             print(f"\t\tAverage num. lost: {sum(rx_count) / count}")
 
         plt.xlabel("Message Arrival Time")
         plt.ylabel("Cumulative Proportion of Nodes")
         plt.xlim(0.0, max_arr_time_num)
-        plt.title(f"Message Arrival Times for D=8 & D_announce={announce}")
+        plt.title(title)
         plt.grid(True)
         plt.legend()
-        plt.savefig(f"./plots/cdf_num_{announce}.png")
+        plt.savefig(f"./plots/cdf_{num_msgs}_msgs__{arr_times_key}.png")
         print("plot saved")
+
+    for num_msgs in num_list:
+        plot_arrival_times(
+            f"Message Arrival Times for any 4 messages out of 128 messages across 128 topics.\nD=8 and {num_msgs} msgs",
+            num_msgs,
+            "f2m",
+        )
+        plot_arrival_times(
+            f"Message Arrival Times for the last message received per node out of 128 messages across 128 topics.\nD=8 and {num_msgs} msgs",
+            num_msgs,
+            "f2l",
+        )
 
     # # 3. plot CDF of arrival times vs. nodes for 16 messages(of same size) published at the same time in presence of malicious nodes
     # # three different plots for different Dannounce. Each plot contains 5 CDFs for different percentages of malicious nodes

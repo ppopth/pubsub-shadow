@@ -29,7 +29,7 @@ D=8
 # done
 
 for announce in 0 $(($D - 1)) $D; do
-  for num_msgs in 64 128; do
+  for num_msgs in 128; do
     result=$((128 * 1024))
     filename=shadow-128-$announce-$num_msgs
 
