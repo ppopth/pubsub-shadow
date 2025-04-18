@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	topicPrefix = "foobar"
+	topicPrefix       = "foobar"
+	custodyTopicCount = 8
 )
 
 var (
@@ -122,7 +123,28 @@ func main() {
 	}
 	var topics []*pubsub.Topic
 	var subs []*pubsub.Subscription
-	for i := 0; i < *numMsgsFlag; i++ {
+
+	// Create a slice of all possible topic indices
+	topicIndices := make([]int, *numMsgsFlag)
+	for i := range topicIndices {
+		topicIndices[i] = i
+	}
+
+	// For non-publisher nodes, shuffle and take first 8
+	if nodeId != 0 {
+		// The publisher (nodeId == 0) subscribes to all topics,
+		// other nodes subscribe to 8 random topics.
+		// Create a deterministic random source based on nodeId
+		r := rand.New(rand.NewSource(int64(nodeId)))
+		r.Shuffle(len(topicIndices), func(i, j int) {
+			topicIndices[i], topicIndices[j] = topicIndices[j], topicIndices[i]
+		})
+		maxTopics := min(custodyTopicCount, *numMsgsFlag)
+		topicIndices = topicIndices[:maxTopics]
+	}
+
+	// Subscribe to selected topics
+	for _, i := range topicIndices {
 		topicName := fmt.Sprintf("%s%d", topicPrefix, i)
 		topic, err := ps.Join(topicName)
 		if err != nil {
@@ -134,6 +156,7 @@ func main() {
 		}
 		topics = append(topics, topic)
 		subs = append(subs, sub)
+		log.Printf("Subscribed to topic: %s\n", topicName)
 	}
 
 	// wait 30 seconds for other nodes to bootstrap
@@ -192,8 +215,7 @@ func main() {
 	}
 
 	c := make(chan *pubsub.Message)
-	for i := 0; i < *numMsgsFlag; i++ {
-		sub := subs[i]
+	for _, sub := range subs {
 		go func() {
 			// block and wait to receive the next message of each topic
 			msg, err := sub.Next(ctx)
