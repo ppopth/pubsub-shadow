@@ -2,6 +2,7 @@
 /shadow.data
 /shadow.yaml
 /graph.gml
+experiment-results/
 =======
 /*.data
 /**/*/*.tar.gz
