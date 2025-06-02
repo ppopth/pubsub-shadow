@@ -4,6 +4,8 @@ set -e
 
 go build -linkshared
 
+num_nodes=3000
+conns=64
 D=8
 
 for kb in 128 256 512 1024 2048 4096 8192; do
@@ -17,7 +19,7 @@ for kb in 128 256 512 1024 2048 4096 8192; do
          interval=1500
       fi
 
-      python3 network_graph.py 1000 35 $result 1 $D $announce $interval 0
+      python3 network_graph.py $num_nodes $conns $result 1 $D $announce $interval 0
 
       shadow --progress true -d $filename.data shadow.yaml
 
@@ -38,7 +40,7 @@ for announce in 0 $(($D - 1)) $D; do
     else
        interval=1500
     fi
-    python3 network_graph.py 1000 35 $result $num_msgs $D $announce $interval 0
+    python3 network_graph.py $num_nodes $conns $result $num_msgs $D $announce $interval 0
 
     shadow --progress true -d $filename.data shadow.yaml
 
@@ -59,7 +61,7 @@ for announce in 0 $(($D - 1)) $D; do
     else
        interval=1500
     fi
-    python3 network_graph.py 1000 35 $result 16 8 $announce $interval $malicious
+    python3 network_graph.py $num_nodes $conns $result 16 8 $announce $interval $malicious
 
     shadow --progress true -d $filename.data shadow.yaml
 

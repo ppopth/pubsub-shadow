@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	topicPrefix = "foobar"
+	topicPrefix       = "foobar"
+	custodyTopicCount = 8
 )
 
 var (
@@ -120,10 +121,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	var topicNames []string
+	for i := 0; i < *numMsgsFlag; i++ {
+		topicNames = append(topicNames, fmt.Sprintf("%s%d", topicPrefix, i))
+	}
+	var toSubscribe []string
+	if nodeId == 0 {
+		toSubscribe := make([]string, len(topicNames))
+		copy(toSubscribe, topicNames)
+	} else {
+		for _, i := range rand.Perm(*numMsgsFlag)[:min(*numMsgsFlag, custodyTopicCount)] {
+			toSubscribe = append(toSubscribe, topicNames[i])
+		}
+	}
+
 	var topics []*pubsub.Topic
 	var subs []*pubsub.Subscription
-	for i := 0; i < *numMsgsFlag; i++ {
-		topicName := fmt.Sprintf("%s%d", topicPrefix, i)
+	for _, topicName := range toSubscribe {
 		topic, err := ps.Join(topicName)
 		if err != nil {
 			panic(err)
@@ -134,6 +149,7 @@ func main() {
 		}
 		topics = append(topics, topic)
 		subs = append(subs, sub)
+		log.Printf("Subscribed to topic: %s\n", topicName)
 	}
 
 	// wait 30 seconds for other nodes to bootstrap
@@ -180,20 +196,19 @@ func main() {
 
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {
-		for i := 0; i < *numMsgsFlag; i++ {
+		for _, topic := range topics {
 			msg := make([]byte, *msgSizeFlag)
 			rand.Read(msg) // it takes about a 50-100 us to fill the buffer on macpro 2019. Can be considered simulataneous
-			if err := topics[i].Publish(ctx, msg); err != nil {
+			if err := topic.Publish(ctx, msg); err != nil {
 				log.Printf("Failed to publish message by %s\n", h.ID())
 			} else {
-				log.Printf("Published: (topic: %s, id: %s)\n", topics[i].String(), CalcID(msg))
+				log.Printf("Published: (topic: %s, id: %s)\n", topic.String(), CalcID(msg))
 			}
 		}
 	}
 
 	c := make(chan *pubsub.Message)
-	for i := 0; i < *numMsgsFlag; i++ {
-		sub := subs[i]
+	for _, sub := range subs {
 		go func() {
 			// block and wait to receive the next message of each topic
 			msg, err := sub.Next(ctx)
