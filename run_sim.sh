@@ -30,8 +30,8 @@ for kb in 128 256 512 1024 2048 4096 8192; do
   done
 done
 
-for announce in 0 $(($D - 1)) $D; do
-  for num_msgs in 2 4 8 16 32 64; do
+for num_msgs in 64 32 16 8 4 2; do
+  for announce in 0 $(($D - 1)) $D; do
     result=$((128 * 1024))
     filename=shadow-128-$announce-$num_msgs
 

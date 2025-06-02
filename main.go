@@ -128,8 +128,9 @@ func main() {
 	}
 	var toSubscribe []string
 	if nodeId == 0 {
-		toSubscribe := make([]string, len(topicNames))
-		copy(toSubscribe, topicNames)
+		for _, topicName := range topicNames {
+			toSubscribe = append(toSubscribe, topicNames)
+		}
 	} else {
 		for _, i := range rand.Perm(*numMsgsFlag)[:min(*numMsgsFlag, custodyTopicCount)] {
 			toSubscribe = append(toSubscribe, topicNames[i])
