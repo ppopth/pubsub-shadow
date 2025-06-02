@@ -4,64 +4,22 @@ set -e
 
 go build -linkshared
 
-num_nodes=3000
-conns=64
+num_nodes=2000
+conns=128
 D=8
 
-for kb in 128 256 512 1024 2048 4096 8192; do
+for num_blobs in 64 32; do
   for announce in 0 $(($D - 1)) $D; do
-      result=$((kb * 1024))
-      filename=shadow-$kb-$announce-1
-
-      if test $announce -eq 0; then
-         interval=700
-      else
-         interval=1500
-      fi
-
-      python3 network_graph.py $num_nodes $conns $result 1 $D $announce $interval 0
-
-      shadow --progress true -d $filename.data shadow.yaml
-
-      tar -czf $filename.tar.gz $filename.data
-
-      rm shadow.yaml
-      rm -rf $filename.data
-  done
-done
-
-for num_msgs in 64 32 16 8 4 2; do
-  for announce in 0 $(($D - 1)) $D; do
-    result=$((128 * 1024))
-    filename=shadow-128-$announce-$num_msgs
+    kbs=$((2 * $num_blobs)) # each cell of the column is 2KB
+    result=$(($kbs * 1024))
+    filename=shadow-$kbs-$announce-128
 
     if test $announce -eq 0; then
        interval=700
     else
        interval=1500
     fi
-    python3 network_graph.py $num_nodes $conns $result $num_msgs $D $announce $interval 0
-
-    shadow --progress true -d $filename.data shadow.yaml
-
-    tar -czf $filename.tar.gz $filename.data
-
-    rm shadow.yaml
-    rm -rf $filename.data
-  done
-done
-
-for announce in 0 $(($D - 1)) $D; do
-  for malicious in 5 10 20 30 50; do
-    result=$((128 * 1024))
-    filename=shadow-malicious-$malicious-$announce
-
-    if test $announce -eq 0; then
-       interval=700
-    else
-       interval=1500
-    fi
-    python3 network_graph.py $num_nodes $conns $result 16 8 $announce $interval $malicious
+    python3 network_graph.py $num_nodes $conns $result 128 $D $announce $interval 0
 
     shadow --progress true -d $filename.data shadow.yaml
 
