@@ -129,7 +129,7 @@ func main() {
 	var toSubscribe []string
 	if nodeId == 0 {
 		for _, topicName := range topicNames {
-			toSubscribe = append(toSubscribe, topicNames)
+			toSubscribe = append(toSubscribe, topicName)
 		}
 	} else {
 		for _, i := range rand.Perm(*numMsgsFlag)[:min(*numMsgsFlag, custodyTopicCount)] {
