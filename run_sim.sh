@@ -8,7 +8,7 @@ num_nodes=2000
 conns=128
 D=8
 
-for num_blobs in 64 32; do
+for num_blobs in 512 256 128 64 32; do
   for announce in 0 $(($D - 1)) $D; do
     kbs=$((2 * $num_blobs)) # each cell of the column is 2KB
     result=$(($kbs * 1024))
