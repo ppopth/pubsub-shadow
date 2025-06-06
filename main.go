@@ -36,7 +36,7 @@ var (
 )
 
 // creates a custom gossipsub parameter set.
-func pubsubGossipParam() pubsub.GossipSubParams {
+func pubsubGossipParam(pushOnly bool) pubsub.GossipSubParams {
 	gParams := pubsub.DefaultGossipSubParams()
 	gParams.Dlo = *DFlag - 2
 	gParams.D = *DFlag
@@ -45,12 +45,16 @@ func pubsubGossipParam() pubsub.GossipSubParams {
 	gParams.HeartbeatInterval = time.Duration(*intervalFlag) * time.Millisecond
 	gParams.HistoryLength = 6
 	gParams.HistoryGossip = 3
-	gParams.Dannounce = *DannounceFlag
+	if pushOnly {
+		gParams.Dannounce = 0
+	} else {
+		gParams.Dannounce = *DannounceFlag
+	}
 	return gParams
 }
 
 // pubsubOptions creates a list of options to configure our router with.
-func pubsubOptions(ignoreIneed bool) []pubsub.Option {
+func pubsubOptions(pushOnly bool, ignoreIneed bool) []pubsub.Option {
 	psOpts := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
@@ -60,7 +64,7 @@ func pubsubOptions(ignoreIneed bool) []pubsub.Option {
 		pubsub.WithPeerOutboundQueueSize(600),
 		pubsub.WithMaxMessageSize(10 * 1 << 20),
 		pubsub.WithValidateQueueSize(600),
-		pubsub.WithGossipSubParams(pubsubGossipParam()),
+		pubsub.WithGossipSubParams(pubsubGossipParam(pushOnly)),
 		pubsub.WithRawTracer(gossipTracer{}),
 		pubsub.WithEventTracer(eventTracer{}),
 		pubsub.WithIgnoreIneed(ignoreIneed),
@@ -116,7 +120,12 @@ func main() {
 	log.Printf("Listening on: %v\n", h.Addrs())
 
 	// create a gossipsub node and subscribe to the topic
-	psOpts := pubsubOptions(*isMaliciousFlag)
+	var psOpts []pubsub.Option
+	if nodeId == 0 {
+		psOpts = pubsubOptions(true, *isMaliciousFlag)
+	} else {
+		psOpts = pubsubOptions(false, *isMaliciousFlag)
+	}
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
