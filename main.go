@@ -119,35 +119,43 @@ func main() {
 		panic(err)
 	}
 
-	var topicNames []string
-	for i := 0; i < *numMsgsFlag; i++ {
-		topicNames = append(topicNames, fmt.Sprintf("%s%d", topicPrefix, i))
-	}
-	var toSubscribe []string
+	var toSubscribe [][]string
 	if nodeId == 0 {
-		for _, topicName := range topicNames {
-			toSubscribe = append(toSubscribe, topicName)
+		for i := 0; i < *numMsgsFlag; i++ {
+			var chunks []string
+			for j := 0; j < (*msgSizeFlag+*maxChunkSizeFlag-1) / *maxChunkSizeFlag; j++ {
+				chunks = append(chunks, fmt.Sprintf("%s-%d-%d", topicPrefix, i, j))
+			}
+			toSubscribe = append(toSubscribe, chunks)
 		}
 	} else {
 		for _, i := range rand.Perm(*numMsgsFlag)[:min(*numMsgsFlag, custodyTopicCount)] {
-			toSubscribe = append(toSubscribe, topicNames[i])
+			var chunks []string
+			for j := 0; j < (*msgSizeFlag+*maxChunkSizeFlag-1) / *maxChunkSizeFlag; j++ {
+				chunks = append(chunks, fmt.Sprintf("%s-%d-%d", topicPrefix, i, j))
+			}
+			toSubscribe = append(toSubscribe, chunks)
 		}
 	}
 
-	var topics []*pubsub.Topic
+	var topics [][]*pubsub.Topic
 	var subs []*pubsub.Subscription
-	for _, topicName := range toSubscribe {
-		topic, err := ps.Join(topicName)
-		if err != nil {
-			panic(err)
+	for _, chunks := range toSubscribe {
+		var chunkTopics []*pubsub.Topic
+		for _, topicName := range chunks {
+			topic, err := ps.Join(topicName)
+			if err != nil {
+				panic(err)
+			}
+			sub, err := topic.Subscribe()
+			if err != nil {
+				panic(err)
+			}
+			chunkTopics = append(chunkTopics, topic)
+			subs = append(subs, sub)
+			log.Printf("Subscribed to topic: %s\n", topicName)
 		}
-		sub, err := topic.Subscribe()
-		if err != nil {
-			panic(err)
-		}
-		topics = append(topics, topic)
-		subs = append(subs, sub)
-		log.Printf("Subscribed to topic: %s\n", topicName)
+		topics = append(topics, chunkTopics)
 	}
 
 	// wait 30 seconds for other nodes to bootstrap
@@ -194,9 +202,9 @@ func main() {
 
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {
-		for _, topic := range topics {
+		for _, chunkTopics := range topics {
 			toSend := *msgSizeFlag
-			for toSend > 0 {
+			for _, topic := range chunkTopics {
 				chunkSize := toSend
 				if chunkSize > *maxChunkSizeFlag {
 					chunkSize = *maxChunkSizeFlag
