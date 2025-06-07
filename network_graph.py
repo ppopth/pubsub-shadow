@@ -37,10 +37,9 @@ na_west = Location("na_west", 1240)
 south_africa = Location("south_africa", 47)
 south_america = Location("south_america", 36)
 
-ultrasupernode = NodeType("ultrasupernode", 30240, 30240, 0)
 supernode = NodeType("supernode", 1024, 1024, 20)
 fullnode = NodeType("fullnode", 50, 50, 80)
-node_types = [ultrasupernode, supernode, fullnode]
+node_types = [supernode, fullnode]
 
 locations = [australia, europe, east_asia, west_asia, na_east, na_west, south_africa, south_america]
 
@@ -123,9 +122,9 @@ target_conn = int(sys.argv[2])
 msg_size = int(sys.argv[3])
 num_msgs = int(sys.argv[4])
 d_mesh = int(sys.argv[5])
-d_announce = int(sys.argv[6])
-interval = int(sys.argv[7])
-num_malicious = int(sys.argv[8])
+interval = int(sys.argv[6])
+num_malicious = int(sys.argv[7])
+chunk_size = int(sys.argv[8])
 
 ids = {}
 for node_type in node_types:
@@ -156,7 +155,7 @@ for i in range(node_count):
     location = random.choices(locations, map(lambda lc: lc.weight, locations))[0]
     is_malicious = ""
     if i == 0:
-        node_type = ultrasupernode
+        node_type = supernode
     else:
         is_malicious = "-malicious" if random.randint(1, 100) <= num_malicious else "" 
         node_type = random.choices(node_types, map(lambda nt: nt.weight, node_types))[0]
@@ -164,7 +163,7 @@ for i in range(node_count):
     config["hosts"][f"node{i}"] = {
         "network_node_id": ids[f"{location.name}-{node_type.name}"],
         "processes": [{
-            "args": f"-count {node_count} -target {target_conn} -n {num_msgs} -size {msg_size} -D {d_mesh} -Dannounce {d_announce} -interval {interval} {is_malicious}",
+            "args": f"-count {node_count} -target {target_conn} -n {num_msgs} -size {msg_size} -chunk {chunk_size} -D {d_mesh} -interval {interval} {is_malicious}",
             "expected_final_state": "running",
             "path": "./pubsub-shadow",
         }],

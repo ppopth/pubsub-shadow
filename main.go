@@ -25,36 +25,30 @@ const (
 )
 
 var (
-	countFlag       = flag.Int("count", 5000, "the number of nodes in the network")
-	targetFlag      = flag.Int("target", 70, "the target number of connected peers")
-	isMaliciousFlag = flag.Bool("malicious", false, "is the node malicious?")
-	DFlag           = flag.Int("D", 8, "mesh degree for gossipsub topics")
-	DannounceFlag   = flag.Int("Dannounce", 8, "announcesub degree for gossipsub topics")
-	intervalFlag    = flag.Int("interval", 700, "heartbeat interval in milliseconds")
-	msgSizeFlag     = flag.Int("size", 32, "message size in bytes")
-	numMsgsFlag     = flag.Int("n", 1, "number of messages published at the same time")
+	countFlag        = flag.Int("count", 5000, "the number of nodes in the network")
+	targetFlag       = flag.Int("target", 70, "the target number of connected peers")
+	isMaliciousFlag  = flag.Bool("malicious", false, "is the node malicious?")
+	DFlag            = flag.Int("D", 8, "mesh degree for gossipsub topics")
+	intervalFlag     = flag.Int("interval", 700, "heartbeat interval in milliseconds")
+	msgSizeFlag      = flag.Int("size", 32, "message size in bytes")
+	maxChunkSizeFlag = flag.Int("chunk", 32, "chunk size in bytes")
+	numMsgsFlag      = flag.Int("n", 1, "number of messages published at the same time")
 )
 
 // creates a custom gossipsub parameter set.
-func pubsubGossipParam(pushOnly bool) pubsub.GossipSubParams {
+func pubsubGossipParam() pubsub.GossipSubParams {
 	gParams := pubsub.DefaultGossipSubParams()
 	gParams.Dlo = *DFlag - 2
 	gParams.D = *DFlag
 	gParams.Dhi = *DFlag + 4
-	gParams.Timeout = 1000 * time.Millisecond
 	gParams.HeartbeatInterval = time.Duration(*intervalFlag) * time.Millisecond
 	gParams.HistoryLength = 6
 	gParams.HistoryGossip = 3
-	if pushOnly {
-		gParams.Dannounce = 0
-	} else {
-		gParams.Dannounce = *DannounceFlag
-	}
 	return gParams
 }
 
 // pubsubOptions creates a list of options to configure our router with.
-func pubsubOptions(pushOnly bool, ignoreIneed bool) []pubsub.Option {
+func pubsubOptions() []pubsub.Option {
 	psOpts := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
@@ -64,10 +58,9 @@ func pubsubOptions(pushOnly bool, ignoreIneed bool) []pubsub.Option {
 		pubsub.WithPeerOutboundQueueSize(600),
 		pubsub.WithMaxMessageSize(10 * 1 << 20),
 		pubsub.WithValidateQueueSize(600),
-		pubsub.WithGossipSubParams(pubsubGossipParam(pushOnly)),
+		pubsub.WithGossipSubParams(pubsubGossipParam()),
 		pubsub.WithRawTracer(gossipTracer{}),
 		pubsub.WithEventTracer(eventTracer{}),
-		pubsub.WithIgnoreIneed(ignoreIneed),
 	}
 
 	return psOpts
@@ -120,12 +113,7 @@ func main() {
 	log.Printf("Listening on: %v\n", h.Addrs())
 
 	// create a gossipsub node and subscribe to the topic
-	var psOpts []pubsub.Option
-	if nodeId == 0 {
-		psOpts = pubsubOptions(true, *isMaliciousFlag)
-	} else {
-		psOpts = pubsubOptions(false, *isMaliciousFlag)
-	}
+	psOpts := pubsubOptions()
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
@@ -207,12 +195,22 @@ func main() {
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {
 		for _, topic := range topics {
-			msg := make([]byte, *msgSizeFlag)
-			rand.Read(msg) // it takes about a 50-100 us to fill the buffer on macpro 2019. Can be considered simulataneous
-			if err := topic.Publish(ctx, msg); err != nil {
-				log.Printf("Failed to publish message by %s\n", h.ID())
-			} else {
-				log.Printf("Published: (topic: %s, id: %s)\n", topic.String(), CalcID(msg))
+			toSend := *msgSizeFlag
+			for toSend > 0 {
+				chunkSize := toSend
+				if chunkSize > *maxChunkSizeFlag {
+					chunkSize = *maxChunkSizeFlag
+				}
+				chunkSize += 300 // Each sidecar includes 300 bytes of a signed block header and inclusion proof
+				msg := make([]byte, chunkSize)
+				rand.Read(msg) // it takes about a 50-100 us to fill the buffer on macpro 2019. Can be considered simulataneous
+				if err := topic.Publish(ctx, msg); err != nil {
+					log.Printf("Failed to publish message by %s\n", h.ID())
+				} else {
+					log.Printf("Published: (topic: %s, id: %s)\n", topic.String(), CalcID(msg))
+				}
+
+				toSend -= chunkSize
 			}
 		}
 	}

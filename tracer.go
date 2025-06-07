@@ -36,18 +36,6 @@ func (t eventTracer) logRpcEvt(action string, data *pb.TraceEvent_RPCMeta, suffi
 				action, msg.GetMessageIDs(), suffix)
 		}
 	}
-	if len(controlData.GetIannounce()) > 0 {
-		for _, msg := range controlData.GetIannounce() {
-			log.Printf("GossipSubRPC: %s IANNOUNCE (topic: %s, id: %s%s)\n",
-				action, msg.GetTopic(), msg.GetMessageID(), suffix)
-		}
-	}
-	if len(controlData.GetIneed()) > 0 {
-		for _, msg := range controlData.GetIneed() {
-			log.Printf("GossipSubRPC: %s INEED (id: %s%s)\n",
-				action, msg.GetMessageID(), suffix)
-		}
-	}
 
 	for _, msg := range data.GetMessages() {
 		log.Printf("GossipSubRPC: %s Publish (topic: %s, id: %s%s)\n",

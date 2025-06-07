@@ -9,23 +9,19 @@ conns=128
 D=8
 
 for num_blobs in 512 256 128 64 32; do
-  for announce in 0 $(($D - 1)) $D; do
     kbs=$((2 * $num_blobs)) # each cell of the column is 2KB
-    result=$(($kbs * 1024))
-    filename=shadow-$kbs-$announce-128
+    for chunk in $kbs $((32 * 1024)); do
+        result=$(($kbs * 1024))
+        filename=shadow-$kbs-chunk-$chunk
+        interval=700
 
-    if test $announce -eq 0; then
-       interval=700
-    else
-       interval=1500
-    fi
-    python3 network_graph.py $num_nodes $conns $result 128 $D $announce $interval 0
+        python3 network_graph.py $num_nodes $conns $result 128 $D $interval 0 $chunk
 
-    shadow --progress true -d $filename.data shadow.yaml
+        shadow --progress true -d $filename.data shadow.yaml
 
-    tar -czf $filename.tar.gz $filename.data
+        tar -czf $filename.tar.gz $filename.data
 
-    rm shadow.yaml
-    rm -rf $filename.data
-  done
+        rm shadow.yaml
+        rm -rf $filename.data
+    done
 done
