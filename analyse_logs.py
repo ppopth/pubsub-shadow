@@ -313,10 +313,8 @@ if __name__ == "__main__":
     # this value is tuned after running this script for a couple times
     max_arr_time_num = 20.0
 
-    announce_list = [0, 7, 8]
-    size_list = [64, 128, 256, 512, 1024]
-    num_list = [128]
-    malicious_list = [5, 10, 20, 30, 50]
+    size_list = [1024, 512, 256, 128, 64]
+    chunk_list = [32, 64, 128]
 
     files = glob.glob("*.tln.json")
     if len(files) > 0:
@@ -333,36 +331,70 @@ if __name__ == "__main__":
 
     if reparse:
         print("Parsing log files")
-        # read all simulations
-        for announce in announce_list:
-            for msg_size in size_list:
-                timeline_key = f"{msg_size}-{announce}-128"
-                print(timeline_key)
-                timelines[timeline_key] = extract_node_timelines(
-                    f"shadow-{timeline_key}.data", count
-                )
+        # read all simulations with no chunking
+        for msg_size in size_list:
+            timeline_key = f"{msg_size}-chunk-{msg_size}"
+            print(timeline_key)
+            timelines[timeline_key] = extract_node_timelines(
+                f"shadow-{timeline_key}.data", count
+            )
+
+        # read all simulations with max chunk of 32
+        for msg_size in size_list:
+            timeline_key = f"{msg_size}-chunk-32"
+            print(timeline_key)
+            timelines[timeline_key] = extract_node_timelines(
+                f"shadow-{timeline_key}.data", count
+            )
 
         with open("analysed_timeline.tln.json", "w") as f:
             json.dump(timelines, f)
 
-    # 1. plot CDF of arrival times vs. nodes for different message sizes for 128 msgs published
-    # three different plots for different Dannounce.
-    for announce in announce_list:
-        print(f"\nAnnouncement Degree = {announce}\n")
-        plt.figure(figsize=(8, 6))
+    # 1. plot CDF of arrival times vs. nodes for different message sizes for 128 msgs published. Comparing chunks of 32KB with no chunks
+    plt.figure(figsize=(8, 6))
+
+    for msg_size in size_list:
+        print(f"\tAnalysis for 128 {msg_size}KB msgs without chunking")
+        timeline_key = f"{msg_size}-chunk-{msg_size}"
+        arr_times, rx_count, dups = analyse_timelines(timelines[timeline_key], 1)
+        num_blobs = int(msg_size/2) # each cell is 2KB
+        plot_cdf(arr_times["f2l"], f"{num_blobs} blobs without chunks")
+        print(f"\t\tAverage num. of dups: {sum(dups) / count}")
+
+    for msg_size in size_list:
+        print(f"\tAnalysis for 128 {msg_size}KB msgs with max chunk of 32 KB")
+        timeline_key = f"{msg_size}-chunk-32"
+        arr_times, rx_count, dups = analyse_timelines(timelines[timeline_key], 1)
+        num_blobs = int(msg_size/2) # each cell is 2KB
+        plot_cdf(arr_times["f2l"], f"{num_blobs} blobs with chunks of 32KB")
+        print(f"\t\tAverage num. of dups: {sum(dups) / count}")
+
+    plt.xlabel("Message Arrival Time")
+    plt.ylabel("Cumulative Proportion of Nodes")
+    plt.xlim(0.0, max_arr_time_size)
+    plt.title(f"Message Arrival Times of PeerDAS with 128 columns and 8 custody columns\n(comparing chunks of 32KB with no chunks)")
+    plt.grid(True)
+    plt.legend()
+    plt.savefig(f"./plots/cdf_sizes.png")
+    print("plot saved")
+
+    # 2. plot CDF of arrival times vs. nodes for different message sizes for 128 msgs published. Comparing various sizes of chunks
+    plt.figure(figsize=(8, 6))
+
+    for chunk_size in chunk_list:
         for msg_size in size_list:
-            print(f"\tAnalysis for 128 {msg_size}KB msgs")
-            timeline_key = f"{msg_size}-{announce}-128"
+            print(f"\tAnalysis for 128 {msg_size}KB msgs with max chunk of {chunk_size} KB")
+            timeline_key = f"{msg_size}-chunk-{chunk_size}"
             arr_times, rx_count, dups = analyse_timelines(timelines[timeline_key], 1)
             num_blobs = int(msg_size/2) # each cell is 2KB
-            plot_cdf(arr_times["f2l"], f"{num_blobs} blobs")
+            plot_cdf(arr_times["f2l"], f"{num_blobs} blobs with chunks of {chunk_size}KB")
             print(f"\t\tAverage num. of dups: {sum(dups) / count}")
 
-        plt.xlabel("Message Arrival Time")
-        plt.ylabel("Cumulative Proportion of Nodes")
-        plt.xlim(0.0, max_arr_time_size)
-        plt.title(f"Message Arrival Times of PeerDAS with 128 columns \nand 8 custody columns for D=8 & D_announce={announce}")
-        plt.grid(True)
-        plt.legend()
-        plt.savefig(f"./plots/cdf_sizes_{announce}.png")
-        print("plot saved")
+    plt.xlabel("Message Arrival Time")
+    plt.ylabel("Cumulative Proportion of Nodes")
+    plt.xlim(0.0, max_arr_time_size)
+    plt.title(f"Message Arrival Times of PeerDAS with 128 columns and 8 custody columns\n(comparing various sizes of chunks)")
+    plt.grid(True)
+    plt.legend()
+    plt.savefig(f"./plots/cdf_chunks.png")
+    print("plot saved")
