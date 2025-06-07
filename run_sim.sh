@@ -10,7 +10,7 @@ D=8
 
 for num_blobs in 512 256 128 64 32; do
     kbs=$((2 * $num_blobs)) # each cell of the column is 2KB
-    for chunk in $kbs 32; do
+    for chunk in $kbs 32 64 128; do
         column_size=$(($kbs * 1024))
         chunk_size=$(($chunk * 1024))
         filename=shadow-$kbs-chunk-$chunk
