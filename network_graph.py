@@ -37,9 +37,10 @@ na_west = Location("na_west", 1240)
 south_africa = Location("south_africa", 47)
 south_america = Location("south_america", 36)
 
+ultrasupernode = NodeType("ultrasupernode", 30240, 30240, 0)
 supernode = NodeType("supernode", 1024, 1024, 20)
 fullnode = NodeType("fullnode", 50, 50, 80)
-node_types = [supernode, fullnode]
+node_types = [ultrasupernode, supernode, fullnode]
 
 locations = [australia, europe, east_asia, west_asia, na_east, na_west, south_africa, south_america]
 
@@ -155,7 +156,7 @@ for i in range(node_count):
     location = random.choices(locations, map(lambda lc: lc.weight, locations))[0]
     is_malicious = ""
     if i == 0:
-        node_type = supernode
+        node_type = ultrasupernode
     else:
         is_malicious = "-malicious" if random.randint(1, 100) <= num_malicious else "" 
         node_type = random.choices(node_types, map(lambda nt: nt.weight, node_types))[0]

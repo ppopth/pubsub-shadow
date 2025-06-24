@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	topicPrefix = "foobar"
+	topicPrefix       = "foobar"
+	custodyTopicCount = 8
 )
 
 var (
@@ -35,7 +36,7 @@ var (
 )
 
 // creates a custom gossipsub parameter set.
-func pubsubGossipParam() pubsub.GossipSubParams {
+func pubsubGossipParam(pushOnly bool) pubsub.GossipSubParams {
 	gParams := pubsub.DefaultGossipSubParams()
 	gParams.Dlo = *DFlag - 2
 	gParams.D = *DFlag
@@ -44,12 +45,16 @@ func pubsubGossipParam() pubsub.GossipSubParams {
 	gParams.HeartbeatInterval = time.Duration(*intervalFlag) * time.Millisecond
 	gParams.HistoryLength = 6
 	gParams.HistoryGossip = 3
-	gParams.Dannounce = *DannounceFlag
+	if pushOnly {
+		gParams.Dannounce = 0
+	} else {
+		gParams.Dannounce = *DannounceFlag
+	}
 	return gParams
 }
 
 // pubsubOptions creates a list of options to configure our router with.
-func pubsubOptions(ignoreIneed bool) []pubsub.Option {
+func pubsubOptions(pushOnly bool, ignoreIneed bool) []pubsub.Option {
 	psOpts := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
@@ -59,7 +64,7 @@ func pubsubOptions(ignoreIneed bool) []pubsub.Option {
 		pubsub.WithPeerOutboundQueueSize(600),
 		pubsub.WithMaxMessageSize(10 * 1 << 20),
 		pubsub.WithValidateQueueSize(600),
-		pubsub.WithGossipSubParams(pubsubGossipParam()),
+		pubsub.WithGossipSubParams(pubsubGossipParam(pushOnly)),
 		pubsub.WithRawTracer(gossipTracer{}),
 		pubsub.WithEventTracer(eventTracer{}),
 		pubsub.WithIgnoreIneed(ignoreIneed),
@@ -115,15 +120,35 @@ func main() {
 	log.Printf("Listening on: %v\n", h.Addrs())
 
 	// create a gossipsub node and subscribe to the topic
-	psOpts := pubsubOptions(*isMaliciousFlag)
+	var psOpts []pubsub.Option
+	if nodeId == 0 {
+		psOpts = pubsubOptions(true, *isMaliciousFlag)
+	} else {
+		psOpts = pubsubOptions(false, *isMaliciousFlag)
+	}
 	ps, err := pubsub.NewGossipSub(ctx, h, psOpts...)
 	if err != nil {
 		panic(err)
 	}
+
+	var topicNames []string
+	for i := 0; i < *numMsgsFlag; i++ {
+		topicNames = append(topicNames, fmt.Sprintf("%s%d", topicPrefix, i))
+	}
+	var toSubscribe []string
+	if nodeId == 0 {
+		for _, topicName := range topicNames {
+			toSubscribe = append(toSubscribe, topicName)
+		}
+	} else {
+		for _, i := range rand.Perm(*numMsgsFlag)[:min(*numMsgsFlag, custodyTopicCount)] {
+			toSubscribe = append(toSubscribe, topicNames[i])
+		}
+	}
+
 	var topics []*pubsub.Topic
 	var subs []*pubsub.Subscription
-	for i := 0; i < *numMsgsFlag; i++ {
-		topicName := fmt.Sprintf("%s%d", topicPrefix, i)
+	for _, topicName := range toSubscribe {
 		topic, err := ps.Join(topicName)
 		if err != nil {
 			panic(err)
@@ -134,6 +159,7 @@ func main() {
 		}
 		topics = append(topics, topic)
 		subs = append(subs, sub)
+		log.Printf("Subscribed to topic: %s\n", topicName)
 	}
 
 	// wait 30 seconds for other nodes to bootstrap
@@ -180,20 +206,19 @@ func main() {
 
 	// if it's a turn for the node to publish, publish
 	if nodeId == 0 {
-		for i := 0; i < *numMsgsFlag; i++ {
+		for _, topic := range topics {
 			msg := make([]byte, *msgSizeFlag)
 			rand.Read(msg) // it takes about a 50-100 us to fill the buffer on macpro 2019. Can be considered simulataneous
-			if err := topics[i].Publish(ctx, msg); err != nil {
+			if err := topic.Publish(ctx, msg); err != nil {
 				log.Printf("Failed to publish message by %s\n", h.ID())
 			} else {
-				log.Printf("Published: (topic: %s, id: %s)\n", topics[i].String(), CalcID(msg))
+				log.Printf("Published: (topic: %s, id: %s)\n", topic.String(), CalcID(msg))
 			}
 		}
 	}
 
 	c := make(chan *pubsub.Message)
-	for i := 0; i < *numMsgsFlag; i++ {
-		sub := subs[i]
+	for _, sub := range subs {
 		go func() {
 			// block and wait to receive the next message of each topic
 			msg, err := sub.Next(ctx)
